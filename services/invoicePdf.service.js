@@ -1,0 +1,225 @@
+const PDFDocument = require('pdfkit');
+const { addProfessionalHeaderWithLogo, formatCurrency, formatDate } = require('../utils/pdfHelper');
+const { numberToWords } = require('../utils/numberToWords');
+const path = require('path');
+
+async function generatePDF(invoice) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 50, bottom: 50, left: 50, right: 50 }
+      });
+
+      const buffers = [];
+      doc.on('data', buffers.push.bind(buffers));
+      doc.on('end', () => {
+        const pdfData = Buffer.concat(buffers);
+        resolve(pdfData);
+      });
+      doc.on('error', reject);
+
+      const pageWidth = doc.page.width;
+      const pageHeight = doc.page.height;
+      const margin = 50;
+      const contentWidth = pageWidth - 2 * margin;
+
+      // Header professionnel avec informations de contact (comme les autres documents)
+      const contactInfo = {
+        phone: 'Contacts : (+235) 62 23 26 17/62 23 26 47 | Sis Avenue Mgr.MATHIAS NGARTERI MAYADI, 7ème Arrondissement/B.P:1743 NDJ-Tchad.',
+        address: null
+      };
+
+      let currentY = addProfessionalHeaderWithLogo(
+        doc,
+        pageWidth,
+        margin,
+        'FACTURE',
+        contactInfo
+      );
+
+      // Informations de facture (en-tête)
+      currentY += 20;
+      doc.fontSize(11);
+      
+      // Facture N°, Période, Date dans un encadré bleu clair
+      const headerBoxHeight = 40;
+      doc.rect(margin, currentY, contentWidth, headerBoxHeight)
+         .fillColor('#e0f2fe')
+         .fill()
+         .strokeColor('#93c5fd')
+         .lineWidth(1)
+         .stroke();
+
+      const headerTextY = currentY + 12;
+      doc.font('Helvetica-Bold')
+         .fillColor('#000000')
+         .fontSize(10);
+      
+      doc.text('Facture N°:', margin + 10, headerTextY, { width: 60 });
+      doc.text(invoice.invoiceNumber || 'N/A', margin + 70, headerTextY);
+      
+      doc.text('Période:', margin + 200, headerTextY, { width: 50 });
+      doc.text(invoice.period || 'N/A', margin + 250, headerTextY);
+      
+      doc.text('Date:', margin + 400, headerTextY, { width: 40 });
+      doc.text(formatDate(invoice.invoiceDate), margin + 440, headerTextY);
+
+      currentY += headerBoxHeight + 20;
+
+      // Client
+      doc.fontSize(12)
+         .font('Helvetica-Bold')
+         .fillColor('#000000')
+         .text('Doit:', margin, currentY);
+      
+      currentY += 18;
+      doc.font('Helvetica')
+         .fontSize(11);
+      
+      const clientName = invoice.clientId?.companyName || 'N/A';
+      const clientDescription = invoice.clientDescription || '';
+      const clientText = clientDescription 
+        ? `${clientName}/${clientDescription}`
+        : clientName;
+      
+      doc.text(clientText, margin + 10, currentY, { width: contentWidth - 10 });
+      currentY += 25;
+
+      // Table des articles
+      doc.fontSize(12)
+         .font('Helvetica-Bold')
+         .text('Articles', margin, currentY);
+      currentY += 20;
+
+      // En-tête du tableau
+      let tableTop = currentY;
+      const colWidths = {
+        number: contentWidth * 0.08,
+        designation: contentWidth * 0.40,
+        quantity: contentWidth * 0.12,
+        unitPrice: contentWidth * 0.20,
+        total: contentWidth * 0.20
+      };
+
+      doc.fontSize(10)
+         .font('Helvetica-Bold')
+         .fillColor('#000000');
+      
+      doc.text('N°', margin, tableTop, { width: colWidths.number, align: 'center' });
+      doc.text('Designation', margin + colWidths.number, tableTop, { width: colWidths.designation });
+      doc.text('Qte', margin + colWidths.number + colWidths.designation, tableTop, { width: colWidths.quantity, align: 'center' });
+      doc.text('Prix unitaire', margin + colWidths.number + colWidths.designation + colWidths.quantity, tableTop, { width: colWidths.unitPrice, align: 'right' });
+      doc.text('Prix total', margin + colWidths.number + colWidths.designation + colWidths.quantity + colWidths.unitPrice, tableTop, { width: colWidths.total, align: 'right' });
+
+      currentY += 20;
+      doc.moveTo(margin, currentY).lineTo(pageWidth - margin, currentY).stroke();
+      currentY += 10;
+
+      // Fonction pour formater les montants (format avec points comme séparateurs de milliers, sans décimales pour les items)
+      const formatInvoiceAmount = (amount) => {
+        return new Intl.NumberFormat('de-DE', {
+          style: 'decimal',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0
+        }).format(amount);
+      };
+
+      // Lignes des articles
+      doc.font('Helvetica')
+         .fontSize(10)
+         .fillColor('#333333');
+
+      if (invoice.items && invoice.items.length > 0) {
+        invoice.items.forEach((item, index) => {
+          if (currentY > pageHeight - 150) {
+            doc.addPage();
+            currentY = margin + 50;
+            tableTop = currentY;
+          }
+
+          const itemY = currentY;
+          doc.text(String(index + 1), margin, itemY, { width: colWidths.number, align: 'center' });
+          doc.text(item.designation || 'N/A', margin + colWidths.number, itemY, { width: colWidths.designation });
+          doc.text(String(item.quantity || 0), margin + colWidths.number + colWidths.designation, itemY, { width: colWidths.quantity, align: 'center' });
+          
+          doc.text(formatInvoiceAmount(item.unitPrice || 0), margin + colWidths.number + colWidths.designation + colWidths.quantity, itemY, { width: colWidths.unitPrice, align: 'right' });
+          doc.text(formatInvoiceAmount(item.totalPrice || 0), margin + colWidths.number + colWidths.designation + colWidths.quantity + colWidths.unitPrice, itemY, { width: colWidths.total, align: 'right' });
+          
+          currentY += 25;
+          
+          if (index < invoice.items.length - 1) {
+            doc.moveTo(margin, currentY - 5).lineTo(pageWidth - margin, currentY - 5).strokeColor('#e5e7eb').stroke();
+            currentY += 5;
+          }
+        });
+      } else {
+        doc.text('Aucun article', margin, currentY);
+        currentY += 20;
+      }
+
+      currentY += 10;
+      doc.moveTo(margin, currentY).lineTo(pageWidth - margin, currentY).stroke();
+      currentY += 20;
+
+      // Total
+      const totalsX = margin + colWidths.number + colWidths.designation + colWidths.quantity;
+      const totalsWidth = colWidths.unitPrice + colWidths.total;
+
+      doc.font('Helvetica-Bold')
+         .fontSize(11)
+         .fillColor('#000000')
+         .text('Total:', totalsX, currentY, { width: colWidths.unitPrice, align: 'right' });
+      
+      // Format: 784.167,00 FCFA (avec point comme séparateur de milliers)
+      const totalAmount = invoice.totalAmount || 0;
+      const formattedTotal = new Intl.NumberFormat('de-DE', {
+        style: 'decimal',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(totalAmount) + ' FCFA';
+      doc.text(formattedTotal, totalsX + colWidths.unitPrice, currentY, { width: colWidths.total, align: 'right' });
+
+      currentY += 30;
+
+      // Montant en lettres
+      doc.fontSize(11)
+         .font('Helvetica')
+         .fillColor('#333333');
+      
+      const amountInWords = invoice.totalAmountInWords || numberToWords(Math.floor(totalAmount));
+      doc.text(`Arrêtée la présente facture à la somme de: ${amountInWords} FCFA`, margin, currentY, { 
+        width: contentWidth,
+        align: 'left'
+      });
+
+      currentY += 40;
+
+      // Service Administratif et Financier (pied de page)
+      doc.fontSize(10)
+         .font('Helvetica-Bold')
+         .fillColor('#000000')
+         .text('Service Administratif et Financier', margin, currentY, { 
+           width: contentWidth,
+           align: 'center'
+         });
+
+      // Informations de création
+      if (invoice.createdBy) {
+        currentY += 30;
+        doc.fontSize(9)
+           .font('Helvetica')
+           .fillColor('#666666')
+           .text(`Créée par : ${invoice.createdBy.email || 'N/A'}`, margin, currentY);
+      }
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+module.exports = {
+  generatePDF
+};
