@@ -1,6 +1,5 @@
 const Agent = require('../models/agent.model');
 const User = require('../models/user.model');
-const Document = require('../models/document.model');
 const bcrypt = require('bcryptjs');
 const logger = require('../utils/logger');
 
@@ -213,9 +212,6 @@ exports.findOne = async (req, res) => {
       return res.status(404).json({ message: 'Agent non trouvé' });
     }
 
-    // Récupérer les documents séparément
-    const documents = await Document.find({ agentId: agent._id });
-
     // Récupérer le salaire depuis le contrat actif
     const WorkContract = require('../models/workContract.model');
     const activeContract = await WorkContract.findOne({
@@ -233,10 +229,7 @@ exports.findOne = async (req, res) => {
     }
 
     res.json({
-      agent: {
-        ...agentObj,
-        documents
-      }
+      agent: agentObj
     });
   } catch (error) {
     logger.error('Erreur récupération agent:', error);

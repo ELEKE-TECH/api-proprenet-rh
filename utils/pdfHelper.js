@@ -11,7 +11,7 @@ function addProfessionalHeaderWithLogo(doc, pageWidth, margin, title, contactInf
   const contentWidth = pageWidth - (margin * 2);
   const headerStartY = margin;
   const logoSize = 60;
-  const headerHeight = 110;
+  const headerHeight = 130;
   
   // Fond du header avec bande colorée en haut
   doc.rect(margin, headerStartY, contentWidth, 4)
@@ -70,8 +70,20 @@ function addProfessionalHeaderWithLogo(doc, pageWidth, margin, title, contactInf
        .stroke();
   }
 
-  // Titre principal centré (sous le logo)
-  const titleY = logoY + logoSize + 18;
+  // Ligne de contacts centrée entre le logo et le titre
+  const contactText = 'Contacts : (+235) 62 23 26 17 / 62 23 26 47 | Avenue Mgr. MATHIAS NGARTERI MAYADI, 7ème Arrondissement / B.P: 1743 NDJ-Tchad';
+  const contactY = logoY + logoSize + 8;
+  
+  doc.fontSize(8)
+     .font('Helvetica')
+     .fillColor('#374151')
+     .text(contactText, margin, contactY, {
+       width: contentWidth,
+       align: 'center'
+     });
+
+  // Titre principal centré (sous la ligne de contacts)
+  const titleY = contactY + 14;
   
   // Ombre pour le titre
   doc.fontSize(24)
@@ -90,7 +102,7 @@ function addProfessionalHeaderWithLogo(doc, pageWidth, margin, title, contactInf
      });
 
   // Ligne décorative sous le titre
-  const headerTitleLineY = titleY + 28;
+  const headerTitleLineY = titleY + 22;
   doc.moveTo(margin, headerTitleLineY)
      .lineTo(margin + contentWidth, headerTitleLineY)
      .strokeColor('#1e40af')

@@ -1,7 +1,6 @@
 const Recruitment = require('../models/recruitment.model');
 const Agent = require('../models/agent.model');
 const User = require('../models/user.model');
-const Document = require('../models/document.model');
 const logger = require('../utils/logger');
 
 // Créer une candidature

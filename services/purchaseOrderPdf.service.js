@@ -228,20 +228,6 @@ async function generatePDF(purchaseOrder) {
         currentY += 20;
       }
 
-      // Informations de création
-      if (purchaseOrder.createdBy) {
-        currentY += 20;
-        doc.fontSize(9)
-           .font('Helvetica')
-           .fillColor('#666666')
-           .text(`Créé par : ${purchaseOrder.createdBy.email || 'N/A'}`, margin, currentY);
-        
-        if (purchaseOrder.approvedBy && purchaseOrder.approvedAt) {
-          currentY += 12;
-          doc.text(`Approuvé par : ${purchaseOrder.approvedBy.email || 'N/A'} le ${formatDate(purchaseOrder.approvedAt)}`, margin, currentY);
-        }
-      }
-
       doc.end();
     } catch (error) {
       reject(error);

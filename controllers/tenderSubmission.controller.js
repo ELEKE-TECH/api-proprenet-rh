@@ -1,5 +1,4 @@
 const TenderSubmission = require('../models/tenderSubmission.model');
-const Document = require('../models/document.model');
 const logger = require('../utils/logger');
 
 // Créer une soumission d'appel d'offres

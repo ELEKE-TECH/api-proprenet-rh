@@ -42,14 +42,6 @@ const PERMISSIONS = {
     markPaid: ['super_admin', 'accountant']
   },
 
-  // Gestion des documents
-  documents: {
-    upload: ['super_admin', 'recruiter', 'agent', 'client'],
-    read: ['super_admin', 'recruiter', 'planner', 'agent', 'client'],
-    delete: ['super_admin', 'recruiter'],
-    verify: ['super_admin', 'recruiter']
-  },
-
   // Gestion des feedbacks
   feedbacks: {
     create: ['super_admin', 'client'],
