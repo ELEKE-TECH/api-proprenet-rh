@@ -1,5 +1,5 @@
 const PDFDocument = require('pdfkit');
-const { addProfessionalHeaderWithLogo, formatCurrency, formatDate, addSimpleFooter } = require('../utils/pdfHelper');
+const { addProfessionalHeaderWithLogo, formatCurrency, formatDate } = require('../utils/pdfHelper');
 const { numberToWords } = require('../utils/numberToWords');
 const path = require('path');
 
@@ -259,7 +259,7 @@ async function generatePDF(invoice) {
 
       currentY += 40;
 
-      // Service Administratif et Financier (pied de page)
+      // Service Administratif et Financier
       doc.fontSize(10)
          .font('Helvetica-Bold')
          .fillColor('#000000')
@@ -267,9 +267,6 @@ async function generatePDF(invoice) {
            width: contentWidth,
            align: 'center'
          });
-
-      // Ajouter le footer avec les coordonnées
-      addSimpleFooter(doc, pageHeight, margin);
 
       doc.end();
     } catch (error) {

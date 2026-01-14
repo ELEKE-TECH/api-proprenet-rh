@@ -1,7 +1,7 @@
 const PDFDocument = require('pdfkit');
 const logger = require('../utils/logger');
 const WorkContract = require('../models/workContract.model');
-const { addProfessionalHeaderWithLogo, addSimpleFooter } = require('../utils/pdfHelper');
+const { addProfessionalHeaderWithLogo } = require('../utils/pdfHelper');
 
 /**
  * Service de génération PDF pour les contrats de travail
@@ -333,20 +333,6 @@ class WorkContractPdfService {
 
       // Espace pour les signatures
       doc.moveDown(3);
-
-      // Ajouter le footer avec les coordonnées sur toutes les pages
-      try {
-        const pageRange = doc.bufferedPageRange();
-        if (pageRange) {
-          for (let i = 0; i < pageRange.count; i++) {
-            doc.switchToPage(i);
-            addSimpleFooter(doc, pageHeight, margin);
-          }
-          doc.switchToPage(0);
-        }
-      } catch (error) {
-        logger.warn('Erreur ajout footer:', error);
-      }
 
       // S'assurer qu'on a au maximum 2 pages (exceptionnellement pour le contrat de travail)
       try {

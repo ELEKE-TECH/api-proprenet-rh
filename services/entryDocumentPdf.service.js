@@ -255,21 +255,6 @@ class EntryDocumentPdfService {
         logger.warn('Erreur vérification pages:', error);
       }
 
-      // Ajouter le footer avec les coordonnées
-      const pageHeight = doc.page.height;
-      try {
-        const pageRange = doc.bufferedPageRange();
-        if (pageRange) {
-          for (let i = 0; i < pageRange.count; i++) {
-            doc.switchToPage(i);
-            addSimpleFooter(doc, pageHeight, margin);
-          }
-          doc.switchToPage(0);
-        }
-      } catch (error) {
-        logger.warn('Erreur ajout footer:', error);
-      }
-
       return doc;
     } catch (error) {
       logger.error('Erreur génération PDF document d\'entrée:', error);

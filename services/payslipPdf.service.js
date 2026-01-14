@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const logger = require('../utils/logger');
 const Payroll = require('../models/payroll.model');
-const { formatCurrency, addProfessionalHeaderWithLogo, addSimpleFooter } = require('../utils/pdfHelper');
+const { formatCurrency, addProfessionalHeaderWithLogo } = require('../utils/pdfHelper');
 
 /**
  * Service de génération PDF pour les bulletins de paie
@@ -590,20 +590,6 @@ class PayslipPdfService {
       // Valider doc.y avant de le définir
       const finalY = safeNumber(cumulY + 20);
       doc.y = (!isNaN(finalY) && isFinite(finalY)) ? finalY : 750;
-
-      // Ajouter le footer avec les coordonnées
-      try {
-        const pageRange = doc.bufferedPageRange();
-        if (pageRange) {
-          for (let i = 0; i < pageRange.count; i++) {
-            doc.switchToPage(i);
-            addSimpleFooter(doc, pageHeight, margin);
-          }
-          doc.switchToPage(0);
-        }
-      } catch (error) {
-        logger.warn('Erreur ajout footer:', error);
-      }
 
       // S'assurer qu'on reste sur une seule page
       try {

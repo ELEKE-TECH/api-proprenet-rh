@@ -1,7 +1,7 @@
 const PDFDocument = require('pdfkit');
 const logger = require('../utils/logger');
 const WorkCertificate = require('../models/workCertificate.model');
-const { addProfessionalHeaderWithLogo, addSimpleFooter } = require('../utils/pdfHelper');
+const { addProfessionalHeaderWithLogo } = require('../utils/pdfHelper');
 
 /**
  * Service de génération PDF pour les certificats de travail
@@ -132,21 +132,6 @@ class WorkCertificatePdfService {
          .text('Mme MENODJI PASSEH', margin, doc.y, { width: contentWidth, align: 'right' });
 
       doc.moveDown(2);
-
-      // Ajouter le footer avec les coordonnées
-      const pageHeight = doc.page.height;
-      try {
-        const pageRange = doc.bufferedPageRange();
-        if (pageRange) {
-          for (let i = 0; i < pageRange.count; i++) {
-            doc.switchToPage(i);
-            addSimpleFooter(doc, pageHeight, margin);
-          }
-          doc.switchToPage(0);
-        }
-      } catch (error) {
-        logger.warn('Erreur ajout footer:', error);
-      }
 
       // Nettoyer les pages supplémentaires
       try {

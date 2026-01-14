@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const logger = require('../utils/logger');
 const EndOfWorkDocument = require('../models/endOfWorkDocument.model');
-const { addProfessionalHeaderWithLogo, addProfessionalHeader, addSection, addSeparator, addProfessionalFooter, addSimpleFooter, formatDate, formatCurrency } = require('../utils/pdfHelper');
+const { addProfessionalHeaderWithLogo, addProfessionalHeader, addSection, addSeparator, addProfessionalFooter, formatDate, formatCurrency } = require('../utils/pdfHelper');
 
 /**
  * Service de génération PDF pour les documents de fin de travail
@@ -253,9 +253,6 @@ class EndOfWorkPdfService {
 
       doc.y += 15;
 
-      // Ajouter le footer avec les coordonnées
-      addSimpleFooter(doc, pageHeight, margin);
-      
       // FORCER à rester sur la première page - méthode ULTRA agressive
       try {
         doc.switchToPage(0);

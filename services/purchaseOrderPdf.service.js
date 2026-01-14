@@ -242,9 +242,6 @@ async function generatePDF(purchaseOrder) {
         }
       }
 
-      // Ajouter le footer avec les coordonnées
-      addSimpleFooter(doc, pageHeight, margin);
-
       doc.end();
     } catch (error) {
       reject(error);
