@@ -4,27 +4,30 @@ const fs = require('fs');
 const logger = require('./logger');
 
 /**
- * Crée un header professionnel avec logo (style bulletin de paie)
- * Design moderne avec logo à gauche, titre centré, et informations de contact
+ * Crée un header professionnel avec logo
+ * Design : logo centré + titre centré (sans coordonnées, déplacées en pied de page)
  */
 function addProfessionalHeaderWithLogo(doc, pageWidth, margin, title, contactInfo = null) {
   const contentWidth = pageWidth - (margin * 2);
   const headerStartY = margin;
-  const logoSize = 50;
-  const headerHeight = 85;
+  const logoSize = 60;
+  const headerHeight = 110;
   
   // Fond du header avec bande colorée en haut
   doc.rect(margin, headerStartY, contentWidth, 4)
      .fillColor('#1e40af')
      .fill();
   
-  // Zone logo à gauche
+  // Logo centré
+  const logoX = margin + (contentWidth - logoSize) / 2;
+  const logoY = headerStartY + 10;
   const logoPath = path.join(__dirname, '../assets/images/logo.jpg');
+  
   try {
     if (fs.existsSync(logoPath)) {
       doc.save();
       // Fond blanc pour le logo
-      doc.rect(margin, headerStartY + 8, logoSize + 4, logoSize + 4)
+      doc.rect(logoX - 2, logoY - 2, logoSize + 4, logoSize + 4)
          .fillColor('#ffffff')
          .fill()
          .strokeColor('#e5e7eb')
@@ -32,7 +35,7 @@ function addProfessionalHeaderWithLogo(doc, pageWidth, margin, title, contactInf
          .stroke();
       
       // Ajouter le logo
-      doc.image(logoPath, margin + 2, headerStartY + 10, {
+      doc.image(logoPath, logoX, logoY, {
         width: logoSize,
         height: logoSize,
         fit: [logoSize, logoSize],
@@ -42,24 +45,24 @@ function addProfessionalHeaderWithLogo(doc, pageWidth, margin, title, contactInf
       doc.restore();
     } else {
       // Placeholder si logo absent
-      doc.rect(margin, headerStartY + 8, logoSize + 4, logoSize + 4)
+      doc.rect(logoX - 2, logoY - 2, logoSize + 4, logoSize + 4)
          .fillColor('#f3f4f6')
          .fill()
          .strokeColor('#d1d5db')
          .lineWidth(1)
          .stroke();
       
-      doc.fontSize(10)
+      doc.fontSize(12)
          .font('Helvetica-Bold')
          .fillColor('#6b7280')
-         .text('PROPRENET', margin + 5, headerStartY + 25, {
-           width: logoSize - 6,
+         .text('PROPRENET', logoX, logoY + logoSize / 2 - 6, {
+           width: logoSize,
            align: 'center'
          });
     }
   } catch (error) {
     logger.warn('Erreur chargement logo:', error);
-    doc.rect(margin, headerStartY + 8, logoSize + 4, logoSize + 4)
+    doc.rect(logoX - 2, logoY - 2, logoSize + 4, logoSize + 4)
        .fillColor('#f3f4f6')
        .fill()
        .strokeColor('#d1d5db')
@@ -67,73 +70,32 @@ function addProfessionalHeaderWithLogo(doc, pageWidth, margin, title, contactInf
        .stroke();
   }
 
-  // Titre principal centré
-  const titleX = margin + logoSize + 15;
-  const titleWidth = contentWidth - (logoSize + 15);
-  const titleY = headerStartY + 12;
+  // Titre principal centré (sous le logo)
+  const titleY = logoY + logoSize + 18;
   
   // Ombre pour le titre
-  doc.fontSize(22)
+  doc.fontSize(24)
      .font('Helvetica-Bold')
      .fillColor('#e5e7eb')
-     .text(title, titleX + 1, titleY + 1, {
+     .text(title, margin + 1, titleY + 1, {
        align: 'center',
-       width: titleWidth
+       width: contentWidth
      });
   
   // Titre principal en bleu foncé
   doc.fillColor('#1e40af')
-     .text(title, titleX, titleY, {
+     .text(title, margin, titleY, {
        align: 'center',
-       width: titleWidth
+       width: contentWidth
      });
 
   // Ligne décorative sous le titre
-  const headerTitleLineY = titleY + 30;
-  doc.moveTo(titleX, headerTitleLineY)
-     .lineTo(titleX + titleWidth, headerTitleLineY)
+  const headerTitleLineY = titleY + 28;
+  doc.moveTo(margin, headerTitleLineY)
+     .lineTo(margin + contentWidth, headerTitleLineY)
      .strokeColor('#1e40af')
      .lineWidth(1.5)
      .stroke();
-
-  // Informations de contact
-  if (contactInfo) {
-    const contactY = headerStartY + 45;
-    doc.fontSize(7.5)
-       .font('Helvetica')
-       .fillColor('#374151')
-       .text(contactInfo.phone || 'Contacts : (+235) 62 23 26 17 / 62 23 26 47', titleX, contactY, {
-         align: 'center',
-         width: titleWidth
-       });
-    
-    if (contactInfo.address) {
-      const addressY = contactY + 10;
-      doc.fontSize(7.5)
-         .text(contactInfo.address, titleX, addressY, {
-           align: 'center',
-           width: titleWidth
-         });
-    }
-  } else {
-    // Informations par défaut
-    const contactY = headerStartY + 45;
-    doc.fontSize(7.5)
-       .font('Helvetica')
-       .fillColor('#374151')
-       .text('Contacts : (+235) 62 23 26 17 / 62 23 26 47', titleX, contactY, {
-         align: 'center',
-         width: titleWidth
-       });
-    
-    const addressY = contactY + 10;
-    doc.fontSize(7.5)
-       .text('Avenue Mgr. MATHIAS NGARTERI MAYADI, 7ème Arrondissement / B.P: 1743 NDJ-Tchad', 
-             titleX, addressY, {
-               align: 'center',
-               width: titleWidth
-             });
-  }
 
   // Ligne de séparation en bas du header
   const separatorY = headerStartY + headerHeight;
@@ -401,23 +363,22 @@ function addProfessionalFooter(doc, pageHeight, margin, pageNumber, totalPages) 
     const savedY = doc.y;
     
     // Ligne de séparation - seulement si on a de la place
-    if (savedY < footerY - 15) {
+    if (savedY < footerY - 20) {
       doc.strokeColor('#e2e8f0')
          .lineWidth(1)
-         .moveTo(margin, footerY - 6)
-         .lineTo(margin + contentWidth, footerY - 6)
+         .moveTo(margin, footerY - 10)
+         .lineTo(margin + contentWidth, footerY - 10)
          .stroke();
       
-      // Numéro de page et informations - texte sur la même ligne
+      // Coordonnées de l'entreprise centrées en pied de page
+      const contactText = 'Contacts : (+235) 62 23 26 17/62 23 26 47 | Sis Avenue Mgr.MATHIAS NGARTERI MAYADI, 7ème Arrondissement/B.P:1743 NDJ-Tchad.';
       doc.fillColor('#94a3b8')
-         .fontSize(7) // Encore plus petit
-         .font('Helvetica');
-      
-      // Texte à gauche
-      doc.text(`Page ${pageNumber}`, margin, footerY - 2, { align: 'left' });
-      
-      // Texte à droite
-      doc.text(`© ${new Date().getFullYear()} PROPRENET`, margin, footerY - 2, { align: 'right' });
+         .fontSize(7)
+         .font('Helvetica')
+         .text(contactText, margin, footerY - 4, {
+           width: contentWidth,
+           align: 'center'
+         });
     }
     
     // Ne pas déplacer doc.y après le footer pour éviter les pages vides

@@ -268,15 +268,6 @@ async function generatePDF(invoice) {
            align: 'center'
          });
 
-      // Informations de création
-      if (invoice.createdBy) {
-        currentY += 30;
-        doc.fontSize(9)
-           .font('Helvetica')
-           .fillColor('#666666')
-           .text(`Créée par : ${invoice.createdBy.email || 'N/A'}`, margin, currentY);
-      }
-
       doc.end();
     } catch (error) {
       reject(error);
