@@ -124,12 +124,12 @@ class WorkCertificatePdfService {
       // ===== SIGNATURE =====
       doc.fontSize(11)
          .font('Helvetica-Bold')
-         .text('Directeur Général', margin, doc.y, { width: contentWidth, align: 'right' });
-
+         .text('Directrice Générale', margin, doc.y, { width: contentWidth, align: 'right' });
+      
       doc.moveDown(0.5);
       doc.fontSize(11)
          .font('Helvetica-Bold')
-         .text('Mr TCHOMBI GETNA ZASUTTA', margin, doc.y, { width: contentWidth, align: 'right' });
+         .text('Mme MENODJI PASSEH', margin, doc.y, { width: contentWidth, align: 'right' });
 
       doc.moveDown(2);
 

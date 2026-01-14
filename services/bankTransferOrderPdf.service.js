@@ -217,12 +217,12 @@ async function generateTransferOrderPDF(bank, payrolls, transferDate) {
       
       currentY += 40;
       
-      // Afficher "Directeur General" et le nom sur des lignes séparées
-      // Le nom du directeur de l'entreprise (PROPRENET), pas de la banque
-      const companyDirectorName = 'TCHOMBI GETNA ZASUTTA';
+      // Afficher "Directrice Générale" et le nom sur des lignes séparées
+      // Le nom de la directrice de l'entreprise (PROPRENET), pas de la banque
+      const companyDirectorName = 'Mme MENODJI PASSEH';
       doc.font('Helvetica-Bold')
          .fontSize(11)
-         .text('Directeur General', margin, currentY);
+         .text('Directrice Générale', margin, currentY);
       
       currentY += 15;
       

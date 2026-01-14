@@ -67,7 +67,7 @@ class WorkContractPdfService {
       // ===== INFORMATIONS EMPLOYEUR =====
       doc.fontSize(11)
          .font('Helvetica-Bold')
-         .text('Mr TCHOMBI GETNA ZASUTTA', margin, doc.y, { width: contentWidth });
+         .text('Mme MENODJI PASSEH', margin, doc.y, { width: contentWidth });
 
       doc.moveDown(0.5);
       doc.fontSize(11)
