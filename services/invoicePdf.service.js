@@ -79,12 +79,23 @@ async function generatePDF(invoice) {
       
       const clientName = invoice.clientId?.companyName || 'N/A';
       const clientDescription = invoice.clientDescription || '';
-      const clientText = clientDescription 
-        ? `${clientName}/${clientDescription}`
-        : clientName;
       
-      doc.text(clientText, margin + 10, currentY, { width: contentWidth - 10 });
-      currentY += 20;
+      // Afficher le nom du client sur une ligne
+      doc.text(clientName, margin + 10, currentY, { width: contentWidth - 10 });
+      currentY += 15;
+      
+      // Afficher la description sur une ligne séparée si elle existe
+      if (clientDescription) {
+        doc.fontSize(10)
+           .fillColor('#666666')
+           .text(clientDescription, margin + 10, currentY, { width: contentWidth - 10 });
+        currentY += 15;
+        // Réinitialiser la taille et la couleur pour la suite
+        doc.fontSize(11)
+           .fillColor('#000000');
+      }
+      
+      currentY += 5;
       
       // Afficher l'adresse du client si disponible
       const clientAddress = invoice.clientId?.address;
