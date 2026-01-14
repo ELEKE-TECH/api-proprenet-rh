@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const logger = require('../utils/logger');
 const Payroll = require('../models/payroll.model');
-const { formatCurrency, addProfessionalHeaderWithLogo } = require('../utils/pdfHelper');
+const { formatCurrency, addProfessionalHeaderWithLogo, addSimpleFooter } = require('../utils/pdfHelper');
 
 /**
  * Service de génération PDF pour les bulletins de paie
@@ -291,50 +291,70 @@ class PayslipPdfService {
       // Salaire de base (déjà affiché, on passe juste à la ligne suivante)
       tableY = incrementTableY(0);
 
-      // Ancienneté - TOUJOURS affiché même à 0
-      tableY = addTableRow('Ancienneté', seniority, tableY);
+      // Ancienneté - n'afficher que si > 0
+      if (seniority !== 0) {
+        tableY = addTableRow('Ancienneté', seniority, tableY);
+      }
 
-      // Sursalaire - TOUJOURS affiché même à 0
-      tableY = addTableRow('Sursalaire', sursalaire, tableY);
+      // Sursalaire - n'afficher que si > 0
+      if (sursalaire !== 0) {
+        tableY = addTableRow('Sursalaire', sursalaire, tableY);
+      }
 
-      // Responsabilité - TOUJOURS affiché même à 0 (selon l'image, on voit les détails)
-      tableY = addTableRow('Responsabilité', responsibility, tableY);
+      // Responsabilité - n'afficher que si > 0
+      if (responsibility !== 0) {
+        tableY = addTableRow('Responsabilité', responsibility, tableY);
+      }
 
-      // Risque - TOUJOURS affiché même à 0
-      tableY = addTableRow('Risque', risk, tableY);
+      // Risque - n'afficher que si > 0
+      if (risk !== 0) {
+        tableY = addTableRow('Risque', risk, tableY);
+      }
 
-      // Transport - TOUJOURS affiché même à 0
-      tableY = addTableRow('Transport', transport, tableY);
+      // Transport - n'afficher que si > 0
+      if (transport !== 0) {
+        tableY = addTableRow('Transport', transport, tableY);
+      }
 
-      // Autres primes - TOUJOURS affiché même à 0
-      tableY = addTableRow('Autres primes', otherBonuses, tableY);
+      // Autres primes - n'afficher que si > 0
+      if (otherBonuses !== 0) {
+        tableY = addTableRow('Autres primes', otherBonuses, tableY);
+      }
 
-      // Total indemnités - TOUJOURS affiché même à 0 (en gras)
-      tableY = addTableRow('Total indemnités', totalIndemnities, tableY, true);
-      doc.font('Helvetica'); // Remettre en normal après
+      // Total indemnités - n'afficher que si > 0 (en gras)
+      if (totalIndemnities !== 0) {
+        tableY = addTableRow('Total indemnités', totalIndemnities, tableY, true);
+        doc.font('Helvetica'); // Remettre en normal après
+      }
 
-      // Prime de logement - TOUJOURS affiché même à 0
-      tableY = addTableRow('Prime de logement', housingBonus, tableY);
+      // Prime de logement - n'afficher que si > 0
+      if (housingBonus !== 0) {
+        tableY = addTableRow('Prime de logement', housingBonus, tableY);
+      }
 
-      // Heure supplémentaire - TOUJOURS affiché même à 0
-      tableY = addTableRow('Heure supplémentaire', overtimeHours, tableY);
+      // Heure supplémentaire - n'afficher que si > 0
+      if (overtimeHours !== 0) {
+        tableY = addTableRow('Heure supplémentaire', overtimeHours, tableY);
+      }
 
-      // Absence - TOUJOURS affiché même à 0 (placé dans Charges salariales)
-      tableY = safeNumber(tableY) || 223;
-      const absenceY = tableY;
-      const xDesignation = safeNumber(colDesignation) || 40;
-      const xBase = safeNumber(colBase) || 220;
-      const xGains = safeNumber(colGains) || 280;
-      const xChargesSal = safeNumber(colChargesSalariales) || 360;
-      const xChargesPat = safeNumber(colChargesPatronales) || 455;
-      
-      doc.font('Helvetica');
-      doc.text('Absence', xDesignation, absenceY, { width: 180 });
-      doc.text('', xBase, absenceY, { width: 60, align: 'center' });
-      doc.text('', xGains, absenceY, { width: 80, align: 'right' });
-      doc.text(this.formatAmount(absence), xChargesSal, absenceY, { width: 95, align: 'right' });
-      doc.text('', xChargesPat, absenceY, { width: 100, align: 'center' });
-      tableY = incrementTableY(12);
+      // Absence - n'afficher que si > 0 (placé dans Charges salariales)
+      if (absence !== 0) {
+        tableY = safeNumber(tableY) || 223;
+        const absenceY = tableY;
+        const xDesignation = safeNumber(colDesignation) || 40;
+        const xBase = safeNumber(colBase) || 220;
+        const xGains = safeNumber(colGains) || 280;
+        const xChargesSal = safeNumber(colChargesSalariales) || 360;
+        const xChargesPat = safeNumber(colChargesPatronales) || 455;
+        
+        doc.font('Helvetica');
+        doc.text('Absence', xDesignation, absenceY, { width: 180 });
+        doc.text('', xBase, absenceY, { width: 60, align: 'center' });
+        doc.text('', xGains, absenceY, { width: 80, align: 'right' });
+        doc.text(this.formatAmount(absence), xChargesSal, absenceY, { width: 95, align: 'right' });
+        doc.text('', xChargesPat, absenceY, { width: 100, align: 'center' });
+        tableY = incrementTableY(12);
+      }
 
       // Utiliser le salaire brut calculé ou celui fourni (en utilisant safeNumber pour éviter NaN)
       // Ne pas utiliser || car 0 est falsy - vérifier explicitement
@@ -570,6 +590,20 @@ class PayslipPdfService {
       // Valider doc.y avant de le définir
       const finalY = safeNumber(cumulY + 20);
       doc.y = (!isNaN(finalY) && isFinite(finalY)) ? finalY : 750;
+
+      // Ajouter le footer avec les coordonnées
+      try {
+        const pageRange = doc.bufferedPageRange();
+        if (pageRange) {
+          for (let i = 0; i < pageRange.count; i++) {
+            doc.switchToPage(i);
+            addSimpleFooter(doc, pageHeight, margin);
+          }
+          doc.switchToPage(0);
+        }
+      } catch (error) {
+        logger.warn('Erreur ajout footer:', error);
+      }
 
       // S'assurer qu'on reste sur une seule page
       try {

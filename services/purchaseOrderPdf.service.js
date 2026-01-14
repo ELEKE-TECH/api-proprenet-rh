@@ -242,6 +242,10 @@ async function generatePDF(purchaseOrder) {
         }
       }
 
+      // Ajouter le footer avec les coordonnées
+      const pageHeight = doc.page.height;
+      addSimpleFooter(doc, pageHeight, margin);
+
       doc.end();
     } catch (error) {
       reject(error);

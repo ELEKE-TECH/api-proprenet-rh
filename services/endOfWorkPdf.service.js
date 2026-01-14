@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const logger = require('../utils/logger');
 const EndOfWorkDocument = require('../models/endOfWorkDocument.model');
-const { addProfessionalHeaderWithLogo, addProfessionalHeader, addSection, addSeparator, addProfessionalFooter, formatDate, formatCurrency } = require('../utils/pdfHelper');
+const { addProfessionalHeaderWithLogo, addProfessionalHeader, addSection, addSeparator, addProfessionalFooter, addSimpleFooter, formatDate, formatCurrency } = require('../utils/pdfHelper');
 
 /**
  * Service de génération PDF pour les documents de fin de travail
@@ -253,15 +253,8 @@ class EndOfWorkPdfService {
 
       doc.y += 15;
 
-      // Footer simple
-      const footerY = pageHeight - 30;
-      if (doc.y < footerY) {
-        doc.fillColor('#6b7280')
-           .fontSize(7)
-           .font('Helvetica')
-           .text('PROPRENET - Système de Gestion de Personnel', 
-                 margin, footerY, { width: contentWidth, align: 'center' });
-      }
+      // Ajouter le footer avec les coordonnées
+      addSimpleFooter(doc, pageHeight, margin);
       
       // FORCER à rester sur la première page - méthode ULTRA agressive
       try {

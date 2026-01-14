@@ -48,6 +48,14 @@ const workContractSchema = new Schema({
     indemnities: { type: Number, default: 0, min: 0 },
     // Primes diverses liées au contrat (affichées dans le total primes + indemnités)
     bonuses: { type: Number, default: 0, min: 0 },
+    // Détail des primes pour préremplir le bulletin de paie
+    seniority: { type: Number, default: 0, min: 0 },        // Prime d'ancienneté
+    sursalaire: { type: Number, default: 0, min: 0 },       // Sursalaire
+    responsibility: { type: Number, default: 0, min: 0 },   // Prime de responsabilité
+    risk: { type: Number, default: 0, min: 0 },             // Prime de risque
+    transport: { type: Number, default: 0, min: 0 },        // Prime de transport
+    otherBonuses: { type: Number, default: 0, min: 0 },     // Autres primes
+    housingBonus: { type: Number, default: 0, min: 0 },     // Prime de logement
     currency: { type: String, default: 'FCFA' },
     paymentFrequency: {
       type: String,

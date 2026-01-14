@@ -371,7 +371,7 @@ function addProfessionalFooter(doc, pageHeight, margin, pageNumber, totalPages) 
          .stroke();
       
       // Coordonnées de l'entreprise centrées en pied de page
-      const contactText = 'Contacts : (+235) 62 23 26 17/62 23 26 47 | Sis Avenue Mgr.MATHIAS NGARTERI MAYADI, 7ème Arrondissement/B.P:1743 NDJ-Tchad.';
+      const contactText = 'Contacts : (+235) 62 23 26 17 / 62 23 26 47 | Avenue Mgr. MATHIAS NGARTERI MAYADI, 7ème Arrondissement / B.P: 1743 NDJ-Tchad';
       doc.fillColor('#94a3b8')
          .fontSize(7)
          .font('Helvetica')
@@ -385,6 +385,42 @@ function addProfessionalFooter(doc, pageHeight, margin, pageNumber, totalPages) 
   } catch (error) {
     // Ignorer les erreurs pour ne pas casser la génération
     logger.warn('Erreur ajout footer:', error);
+  }
+}
+
+/**
+ * Ajoute un footer simple avec les coordonnées de l'entreprise
+ * À utiliser dans tous les documents PDF
+ */
+function addSimpleFooter(doc, pageHeight, margin) {
+  try {
+    if (!doc.page) return;
+    
+    const pageWidth = doc.page.width;
+    const contentWidth = pageWidth - (margin * 2);
+    const footerY = pageHeight - 30;
+    
+    // Vérifier qu'on ne dépasse pas la limite de la page
+    if (doc.y >= footerY - 10) return;
+    
+    // Ligne de séparation
+    doc.strokeColor('#e2e8f0')
+       .lineWidth(1)
+       .moveTo(margin, footerY - 10)
+       .lineTo(margin + contentWidth, footerY - 10)
+       .stroke();
+    
+    // Coordonnées de l'entreprise centrées
+    const contactText = 'Contacts : (+235) 62 23 26 17 / 62 23 26 47 | Avenue Mgr. MATHIAS NGARTERI MAYADI, 7ème Arrondissement / B.P: 1743 NDJ-Tchad';
+    doc.fillColor('#94a3b8')
+       .fontSize(7)
+       .font('Helvetica')
+       .text(contactText, margin, footerY - 4, {
+         width: contentWidth,
+         align: 'center'
+       });
+  } catch (error) {
+    logger.warn('Erreur ajout footer simple:', error);
   }
 }
 
@@ -420,6 +456,7 @@ module.exports = {
   addSection,
   addSeparator,
   addProfessionalFooter,
+  addSimpleFooter,
   formatDate,
   formatCurrency
 };

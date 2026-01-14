@@ -1,5 +1,5 @@
 const PDFDocument = require('pdfkit');
-const { addProfessionalHeaderWithLogo, formatCurrency, formatDate } = require('../utils/pdfHelper');
+const { addProfessionalHeaderWithLogo, formatCurrency, formatDate, addSimpleFooter } = require('../utils/pdfHelper');
 const { numberToWords } = require('../utils/numberToWords');
 const path = require('path');
 
@@ -267,6 +267,9 @@ async function generatePDF(invoice) {
            width: contentWidth,
            align: 'center'
          });
+
+      // Ajouter le footer avec les coordonnées
+      addSimpleFooter(doc, pageHeight, margin);
 
       doc.end();
     } catch (error) {

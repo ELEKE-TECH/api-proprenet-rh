@@ -1,6 +1,6 @@
 const PDFDocument = require('pdfkit');
 const logger = require('../utils/logger');
-const { addProfessionalHeaderWithLogo } = require('../utils/pdfHelper');
+const { addProfessionalHeaderWithLogo, addSimpleFooter } = require('../utils/pdfHelper');
 
 class ExitDocumentPdfService {
   /**
@@ -217,6 +217,21 @@ class ExitDocumentPdfService {
         doc.switchToPage(0);
       } catch (error) {
         logger.warn('Erreur vérification pages:', error);
+      }
+
+      // Ajouter le footer avec les coordonnées
+      const pageHeight = doc.page.height;
+      try {
+        const pageRange = doc.bufferedPageRange();
+        if (pageRange) {
+          for (let i = 0; i < pageRange.count; i++) {
+            doc.switchToPage(i);
+            addSimpleFooter(doc, pageHeight, margin);
+          }
+          doc.switchToPage(0);
+        }
+      } catch (error) {
+        logger.warn('Erreur ajout footer:', error);
       }
 
       return doc;

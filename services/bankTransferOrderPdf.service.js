@@ -230,6 +230,10 @@ async function generateTransferOrderPDF(bank, payrolls, transferDate) {
          .fontSize(11)
          .text(companyDirectorName, margin, currentY);
 
+      // Ajouter le footer avec les coordonnées
+      const pageHeight = doc.page.height;
+      addSimpleFooter(doc, pageHeight, margin);
+
       doc.end();
     } catch (error) {
       logger.error('Erreur génération ordre de virement:', error);
