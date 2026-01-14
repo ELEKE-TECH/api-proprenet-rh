@@ -86,6 +86,15 @@ async function generatePDF(invoice) {
       doc.text(clientText, margin + 10, currentY, { width: contentWidth - 10 });
       currentY += 20;
       
+      // Afficher l'adresse du client si disponible
+      const clientAddress = invoice.clientId?.address;
+      if (clientAddress) {
+        doc.fontSize(10)
+           .fillColor('#666666')
+           .text(clientAddress, margin + 10, currentY, { width: contentWidth - 10 });
+        currentY += 20;
+      }
+      
       // Afficher NIF et Numéro client si disponibles (depuis la facture ou le client)
       const clientInfoLines = [];
       const clientNIF = invoice.clientNIF || invoice.clientId?.nif;
