@@ -52,6 +52,14 @@ const invoiceSchema = new Schema({
     type: String,
     trim: true
   },
+  clientNIF: {
+    type: String,
+    trim: true
+  },
+  clientNumber: {
+    type: String,
+    trim: true
+  },
   items: [invoiceItemSchema],
   totalAmount: {
     type: Number,

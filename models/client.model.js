@@ -12,6 +12,11 @@ const clientSchema = new Schema({
     trim: true,
     maxlength: 255
   },
+  nif: {
+    type: String,
+    trim: true,
+    maxlength: 255
+  },
   address: { 
     type: String,
     trim: true

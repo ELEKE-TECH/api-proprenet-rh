@@ -84,7 +84,31 @@ async function generatePDF(invoice) {
         : clientName;
       
       doc.text(clientText, margin + 10, currentY, { width: contentWidth - 10 });
-      currentY += 25;
+      currentY += 20;
+      
+      // Afficher NIF et Numéro client si disponibles (depuis la facture ou le client)
+      const clientInfoLines = [];
+      const clientNIF = invoice.clientNIF || invoice.clientId?.nif;
+      const clientNumber = invoice.clientNumber || invoice.clientId?.companyNumber;
+      
+      if (clientNIF) {
+        clientInfoLines.push(`NIF: ${clientNIF}`);
+      }
+      if (clientNumber) {
+        clientInfoLines.push(`Numéro client: ${clientNumber}`);
+      }
+      
+      if (clientInfoLines.length > 0) {
+        doc.fontSize(10)
+           .fillColor('#666666');
+        clientInfoLines.forEach((line, index) => {
+          doc.text(line, margin + 10, currentY, { width: contentWidth - 10 });
+          currentY += 15;
+        });
+        currentY += 5;
+      } else {
+        currentY += 5;
+      }
 
       // Table des articles
       doc.fontSize(12)

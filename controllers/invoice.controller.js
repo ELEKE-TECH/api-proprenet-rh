@@ -26,7 +26,7 @@ exports.create = async (req, res) => {
     const invoice = new Invoice(invoiceData);
     await invoice.save();
     
-    await invoice.populate('clientId', 'companyName companyNumber address phone email');
+    await invoice.populate('clientId', 'companyName companyNumber nif address phone email');
     await invoice.populate('createdBy', 'email');
     
     res.status(201).json({
@@ -64,7 +64,7 @@ exports.findAll = async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
     const invoices = await Invoice.find(query)
-      .populate('clientId', 'companyName companyNumber')
+      .populate('clientId', 'companyName companyNumber nif')
       .populate('createdBy', 'email')
       .sort({ invoiceDate: -1, createdAt: -1 })
       .skip(skip)
@@ -91,7 +91,7 @@ exports.findAll = async (req, res) => {
 exports.findOne = async (req, res) => {
   try {
     const invoice = await Invoice.findById(req.params.id)
-      .populate('clientId', 'companyName companyNumber address phone email billingInfo')
+      .populate('clientId', 'companyName companyNumber nif address phone email billingInfo')
       .populate('createdBy', 'email');
     
     if (!invoice) {
@@ -167,7 +167,7 @@ exports.delete = async (req, res) => {
 exports.generatePDF = async (req, res) => {
   try {
     const invoice = await Invoice.findById(req.params.id)
-      .populate('clientId', 'companyName companyNumber address phone email billingInfo')
+      .populate('clientId', 'companyName companyNumber nif address phone email billingInfo')
       .populate('createdBy', 'email');
     
     if (!invoice) {

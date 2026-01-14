@@ -7,6 +7,7 @@ exports.create = async (req, res) => {
     const {
       companyName,
       companyNumber,
+      nif,
       address,
       phone,
       email,
@@ -17,6 +18,7 @@ exports.create = async (req, res) => {
     const clientData = {
       companyName,
       companyNumber,
+      nif,
       address,
       phone,
       email,
@@ -32,6 +34,7 @@ exports.create = async (req, res) => {
         id: client._id,
         companyName: client.companyName,
         companyNumber: client.companyNumber,
+        nif: client.nif,
         address: client.address,
         phone: client.phone,
         email: client.email
@@ -58,6 +61,7 @@ exports.findAll = async (req, res) => {
       query.$or = [
         { companyName: { $regex: search, $options: 'i' } },
         { companyNumber: { $regex: search, $options: 'i' } },
+        { nif: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } }
       ];
     }
@@ -114,11 +118,12 @@ exports.findOne = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { companyName, companyNumber, address, phone, email, billingInfo } = req.body;
+    const { companyName, companyNumber, nif, address, phone, email, billingInfo } = req.body;
 
     const updateData = {};
     if (companyName !== undefined) updateData.companyName = companyName;
     if (companyNumber !== undefined) updateData.companyNumber = companyNumber;
+    if (nif !== undefined) updateData.nif = nif;
     if (address !== undefined) updateData.address = address;
     if (phone !== undefined) updateData.phone = phone;
     if (email !== undefined) updateData.email = email;
