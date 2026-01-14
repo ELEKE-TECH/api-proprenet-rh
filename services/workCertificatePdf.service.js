@@ -29,6 +29,27 @@ class WorkCertificatePdfService {
         throw new Error('Agent non trouvé');
       }
 
+      // Récupérer le poste : depuis le certificat, le contrat associé, ou le contrat actif de l'agent
+      let position = certificate.position;
+      if (!position && certificate.workContractId && certificate.workContractId.position) {
+        position = certificate.workContractId.position;
+      }
+      // Si toujours pas de poste, chercher dans le contrat actif de l'agent
+      if (!position) {
+        const WorkContract = require('../models/workContract.model');
+        const activeContract = await WorkContract.findOne({
+          agentId: agent._id,
+          status: 'active'
+        }).select('position').lean();
+        if (activeContract && activeContract.position) {
+          position = activeContract.position;
+        }
+      }
+      // Valeur par défaut si aucun poste trouvé
+      if (!position) {
+        position = 'Non spécifié';
+      }
+
       const doc = new PDFDocument({
         margin: 50,
         size: 'A4',
@@ -99,8 +120,7 @@ class WorkCertificatePdfService {
         doc.moveDown(0.5);
       }
 
-      // Poste occupé
-      const position = certificate.position || (certificate.workContractId && certificate.workContractId.position) || 'Non spécifié';
+      // Poste occupé (utilise la variable position définie plus haut)
       doc.text(`A été employé en qualité de : ${position.toUpperCase()}`, margin, doc.y, { width: contentWidth });
 
       doc.moveDown(1);
