@@ -146,8 +146,8 @@ invoiceSchema.pre('save', async function(next) {
     // Le totalAmount stocké est le Total TTC
     this.totalAmount = totalTTC;
     
-    // Générer le montant en lettres si non fourni (basé sur le TTC)
-    if (!this.totalAmountInWords && this.totalAmount) {
+    // Toujours régénérer le montant en lettres basé sur le TTC pour s'assurer de la cohérence
+    if (this.totalAmount) {
       try {
         const { numberToWords } = require('../utils/numberToWords');
         this.totalAmountInWords = numberToWords(Math.floor(this.totalAmount));

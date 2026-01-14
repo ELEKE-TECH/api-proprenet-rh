@@ -9,18 +9,12 @@ exports.create = async (req, res) => {
     const invoiceData = { ...req.body };
     invoiceData.createdBy = req.userId;
     
-    // Calculer le total si les items sont présents
+    // Le calcul du totalAmount (TTC) et du montant en lettres sera fait par le hook pre('save') du modèle
+    // On ne calcule que les totalPrice des items ici
     if (invoiceData.items && invoiceData.items.length > 0) {
-      invoiceData.totalAmount = invoiceData.items.reduce((sum, item) => {
-        const itemTotal = (item.quantity || 0) * (item.unitPrice || 0);
-        item.totalPrice = itemTotal;
-        return sum + itemTotal;
-      }, 0);
-      
-      // Générer le montant en lettres si non fourni
-      if (!invoiceData.totalAmountInWords && invoiceData.totalAmount) {
-        invoiceData.totalAmountInWords = numberToWords(Math.floor(invoiceData.totalAmount));
-      }
+      invoiceData.items.forEach(item => {
+        item.totalPrice = (item.quantity || 0) * (item.unitPrice || 0);
+      });
     }
     
     const invoice = new Invoice(invoiceData);
@@ -111,18 +105,17 @@ exports.update = async (req, res) => {
     const { id } = req.params;
     const updateData = { ...req.body };
     
-    // Recalculer le total si les items sont modifiés
+    // Le calcul du totalAmount (TTC) et du montant en lettres sera fait par le hook pre('save') du modèle
+    // On ne calcule que les totalPrice des items ici
     if (updateData.items && updateData.items.length > 0) {
-      updateData.totalAmount = updateData.items.reduce((sum, item) => {
-        const itemTotal = (item.quantity || 0) * (item.unitPrice || 0);
-        item.totalPrice = itemTotal;
-        return sum + itemTotal;
-      }, 0);
-      
-      // Générer le montant en lettres si non fourni
-      if (!updateData.totalAmountInWords && updateData.totalAmount) {
-        updateData.totalAmountInWords = numberToWords(Math.floor(updateData.totalAmount));
-      }
+      updateData.items.forEach(item => {
+        item.totalPrice = (item.quantity || 0) * (item.unitPrice || 0);
+      });
+    }
+    
+    // Supprimer totalAmountInWords pour forcer la régénération basée sur le TTC
+    if (updateData.items && updateData.items.length > 0) {
+      updateData.totalAmountInWords = undefined;
     }
     
     const invoice = await Invoice.findByIdAndUpdate(
