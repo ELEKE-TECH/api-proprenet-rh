@@ -29,12 +29,15 @@ class WorkCertificatePdfService {
         throw new Error('Agent non trouvé');
       }
 
-      // Récupérer le poste : depuis le certificat, le contrat associé, ou le contrat actif de l'agent
-      let position = certificate.position;
-      if (!position && certificate.workContractId && certificate.workContractId.position) {
+      // Récupérer le poste depuis le contrat (priorité au contrat associé au certificat)
+      let position = null;
+      
+      // 1. Priorité : poste depuis le contrat associé au certificat
+      if (certificate.workContractId && certificate.workContractId.position) {
         position = certificate.workContractId.position;
       }
-      // Si toujours pas de poste, chercher dans le contrat actif de l'agent
+      
+      // 2. Si pas de contrat associé, chercher dans le contrat actif de l'agent
       if (!position) {
         const WorkContract = require('../models/workContract.model');
         const activeContract = await WorkContract.findOne({
@@ -45,6 +48,12 @@ class WorkCertificatePdfService {
           position = activeContract.position;
         }
       }
+      
+      // 3. En dernier recours, utiliser le poste du certificat (si défini)
+      if (!position && certificate.position) {
+        position = certificate.position;
+      }
+      
       // Valeur par défaut si aucun poste trouvé
       if (!position) {
         position = 'Non spécifié';
