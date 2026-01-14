@@ -113,22 +113,31 @@ exports.update = async (req, res) => {
       });
     }
     
-    // Supprimer totalAmountInWords pour forcer la régénération basée sur le TTC
-    if (updateData.items && updateData.items.length > 0) {
-      updateData.totalAmountInWords = undefined;
-    }
-    
-    const invoice = await Invoice.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    )
-      .populate('clientId', 'companyName companyNumber address phone email billingInfo')
-      .populate('createdBy', 'email');
+    // Utiliser findById puis save() pour s'assurer que les hooks pre('save') sont déclenchés
+    const invoice = await Invoice.findById(id);
     
     if (!invoice) {
       return res.status(404).json({ message: 'Facture non trouvée' });
     }
+    
+    // Mettre à jour les champs
+    Object.keys(updateData).forEach(key => {
+      if (key === 'items') {
+        invoice.items = updateData.items;
+      } else if (key !== 'totalAmount' && key !== 'totalAmountInWords') {
+        invoice[key] = updateData[key];
+      }
+    });
+    
+    // Supprimer totalAmountInWords pour forcer la régénération basée sur le TTC
+    invoice.totalAmountInWords = undefined;
+    
+    // Sauvegarder pour déclencher le hook pre('save') qui recalcule le TTC et régénère le montant en lettres
+    await invoice.save();
+    
+    // Recharger avec les relations
+    await invoice.populate('clientId', 'companyName companyNumber nif address phone email billingInfo');
+    await invoice.populate('createdBy', 'email');
     
     res.json({
       message: 'Facture mise à jour avec succès',

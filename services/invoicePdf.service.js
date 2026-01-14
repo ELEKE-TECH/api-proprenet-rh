@@ -244,12 +244,14 @@ async function generatePDF(invoice) {
 
       currentY += 30;
 
-      // Montant en lettres (basé sur le Total TTC)
+      // Montant en lettres (basé sur le Total TTC calculé dans le PDF)
+      // Toujours recalculer à partir du totalTTC pour s'assurer de la cohérence
       doc.fontSize(11)
          .font('Helvetica')
          .fillColor('#333333');
       
-      const amountInWords = invoice.totalAmountInWords || numberToWords(Math.floor(totalTTC));
+      // Utiliser le totalTTC calculé dans le PDF, pas celui de la base (qui pourrait être obsolète)
+      const amountInWords = numberToWords(Math.floor(totalTTC));
       doc.text(`Arrêtée la présente facture à la somme de: ${amountInWords} FCFA`, margin, currentY, { 
         width: contentWidth,
         align: 'left'
