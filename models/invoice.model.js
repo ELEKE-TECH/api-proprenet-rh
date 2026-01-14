@@ -120,11 +120,13 @@ invoiceSchema.pre('save', async function(next) {
       });
       
       const nextNumber = count + 1;
-      this.invoiceNumber = `${nextNumber}/SAF/PNET/${currentYear}`;
+      // Formater avec 4 chiffres (ex: 0002, 0015, 0123, 1234)
+      const formattedNumber = String(nextNumber).padStart(4, '0');
+      this.invoiceNumber = `${formattedNumber}/SAF/PNET/${currentYear}`;
     } catch (error) {
       logger.error('Erreur génération numéro de facture:', error);
       const currentYear = new Date().getFullYear();
-      const fallbackNumber = String(Date.now()).slice(-3);
+      const fallbackNumber = String(Date.now()).slice(-4).padStart(4, '0');
       this.invoiceNumber = `${fallbackNumber}/SAF/PNET/${currentYear}`;
     }
   }
