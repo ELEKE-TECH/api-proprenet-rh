@@ -43,6 +43,14 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Désactiver tout cache sur les réponses API pour éviter les données obsolètes
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  next();
+});
 
 // Servir les fichiers statiques (incluant les sous-dossiers)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
