@@ -61,7 +61,7 @@ const invoiceSchema = new Schema({
   // TVA (Taxe sur la Valeur Ajoutée)
   vatRate: {
     type: Number,
-    default: 18, // Taux de TVA par défaut au Tchad (18%)
+    default: 19.25, // Taux de TVA par défaut au Tchad (19,25%)
     min: 0,
     max: 100
   },
@@ -131,7 +131,7 @@ invoiceSchema.pre('save', async function(next) {
     }, 0);
     
     // Calculer la TVA et le Total TTC
-    const vatRate = this.vatRate || 18; // Taux de TVA par défaut 18%
+    const vatRate = this.vatRate || 19.25; // Taux de TVA par défaut 19,25%
     const vatAmount = (totalHT * vatRate) / 100;
     const totalTTC = totalHT + vatAmount;
     
