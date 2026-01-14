@@ -146,7 +146,8 @@ invoiceSchema.pre('save', async function(next) {
     const totalHT = Math.round(rawTotalHT);
     
     // Calculer la TVA et le Total TTC (arrondis à l'unité)
-    const vatRate = this.vatRate || 19.25; // Taux de TVA par défaut 19,25%
+    // Utiliser le vatRate fourni (peut être 0), sinon utiliser la valeur par défaut uniquement si undefined/null
+    const vatRate = (this.vatRate !== undefined && this.vatRate !== null) ? this.vatRate : 19.25;
     const rawVatAmount = (totalHT * vatRate) / 100;
     const vatAmount = Math.round(rawVatAmount);
     const totalTTC = totalHT + vatAmount;

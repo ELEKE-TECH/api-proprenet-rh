@@ -206,7 +206,8 @@ async function generatePDF(invoice) {
       const totalHT = Math.round(rawTotalHT);
 
       // Calculer la TVA (arrondie à l'unité)
-      const vatRate = invoice.vatRate || 19.25; // Taux de TVA par défaut 19,25%
+      // Utiliser le vatRate fourni (peut être 0), sinon utiliser la valeur par défaut uniquement si undefined/null
+      const vatRate = (invoice.vatRate !== undefined && invoice.vatRate !== null) ? invoice.vatRate : 19.25;
       const rawVatAmount = (totalHT * vatRate) / 100;
       const vatAmount = Math.round(rawVatAmount);
 
