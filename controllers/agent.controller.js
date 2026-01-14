@@ -37,7 +37,6 @@ exports.create = async (req, res) => {
 
     // Créer l'agent
     const agentData = {
-      userId: userIdToUse || null, // Peut être null si aucun compte utilisateur n'est associé
       firstName,
       lastName,
       birthDate,
@@ -54,6 +53,12 @@ exports.create = async (req, res) => {
       identityDocument: req.body.identityDocument,
       birthDate: birthDate ? new Date(birthDate) : undefined
     };
+
+    // N'ajouter userId que s'il est réellement défini
+    // (sinon userId: null crée un doublon sur l'index unique userId_1)
+    if (userIdToUse) {
+      agentData.userId = userIdToUse;
+    }
 
     const agent = new Agent(agentData);
     await agent.save();
@@ -83,6 +88,12 @@ exports.create = async (req, res) => {
     });
   } catch (error) {
     logger.error('Erreur création agent:', error);
+    // Gérer le cas particulier d'un doublon sur userId (ex: valeur null avec index unique)
+    if (error.code === 11000 && error.keyPattern && error.keyPattern.userId) {
+      return res.status(400).json({ 
+        message: 'Un autre agent sans compte utilisateur existe déjà. Veuillez associer un compte utilisateur ou vérifier les données envoyées.' 
+      });
+    }
     res.status(500).json({ message: error.message });
   }
 };
