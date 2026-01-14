@@ -335,7 +335,6 @@ class WorkContractPdfService {
       doc.moveDown(3);
 
       // Ajouter le footer avec les coordonnées sur toutes les pages
-      const pageHeight = doc.page.height;
       try {
         const pageRange = doc.bufferedPageRange();
         if (pageRange) {
