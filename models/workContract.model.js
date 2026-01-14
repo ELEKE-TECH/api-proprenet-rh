@@ -44,6 +44,10 @@ const workContractSchema = new Schema({
   salary: {
     baseSalary: { type: Number, required: true, min: 0 },
     hourlyRate: { type: Number, min: 0 },
+    // Indemnité de service rendu (affichée dans le contrat + utilisée pour la paie)
+    indemnities: { type: Number, default: 0, min: 0 },
+    // Primes diverses liées au contrat (affichées dans le total primes + indemnités)
+    bonuses: { type: Number, default: 0, min: 0 },
     currency: { type: String, default: 'FCFA' },
     paymentFrequency: {
       type: String,

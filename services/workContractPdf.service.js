@@ -189,8 +189,10 @@ class WorkContractPdfService {
          .font('Helvetica');
 
       const baseSalary = contract.salary?.baseSalary || 0;
-      // Calculer les primes totales (indemnités)
-      const totalBonuses = (contract.salary?.bonuses || 0) + (contract.salary?.indemnities || 0) || 0;
+      // Montants complémentaires de rémunération
+      const indemnity = contract.salary?.indemnities || 0; // Indemnité de service rendu
+      const bonuses = contract.salary?.bonuses || 0;       // Primes diverses
+      const totalBonuses = indemnity + bonuses;            // Total primes + indemnités
       const totalSalary = baseSalary + totalBonuses;
 
       doc.text(`Le travailleur percevra une rémunération de ${this.formatCurrency(totalSalary)} se composant comme suit :`, margin, doc.y, { width: contentWidth });
@@ -200,14 +202,15 @@ class WorkContractPdfService {
       doc.moveDown(0.3);
 
       if (totalBonuses > 0) {
-        doc.text(`Indemnité de service rendu : ${this.formatCurrency(totalBonuses)}`, margin + 20, doc.y, { width: contentWidth - 20 });
+        // Afficher le détail : indemnité puis total primes + indemnités
+        doc.text(`Indemnité de service rendu : ${this.formatCurrency(indemnity)}`, margin + 20, doc.y, { width: contentWidth - 20 });
         doc.moveDown(0.3);
         doc.text(`Total Primes et indemnités : ${this.formatCurrency(totalBonuses)}`, margin + 20, doc.y, { width: contentWidth - 20 });
         doc.moveDown(0.5);
       } else {
-        doc.text(`Indemnité de service rendu : ${this.formatCurrency(0)}`, margin + 20, doc.y, { width: contentWidth - 20 });
+        doc.text(`Indemnité de service rendu : ${this.formatCurrency(indemnity)}`, margin + 20, doc.y, { width: contentWidth - 20 });
         doc.moveDown(0.3);
-        doc.text(`Total Primes et indemnités : ${this.formatCurrency(0)}`, margin + 20, doc.y, { width: contentWidth - 20 });
+        doc.text(`Total Primes et indemnités : ${this.formatCurrency(totalBonuses)}`, margin + 20, doc.y, { width: contentWidth - 20 });
         doc.moveDown(0.5);
       }
 
