@@ -84,19 +84,6 @@ async function generatePDF(invoice) {
       doc.text(clientName, margin + 10, currentY, { width: contentWidth - 10 });
       currentY += 15;
       
-      // Afficher la description sur une ligne séparée si elle existe
-      if (clientDescription) {
-        doc.fontSize(10)
-           .fillColor('#666666')
-           .text(clientDescription, margin + 10, currentY, { width: contentWidth - 10 });
-        currentY += 15;
-        // Réinitialiser la taille et la couleur pour la suite
-        doc.fontSize(11)
-           .fillColor('#000000');
-      }
-      
-      currentY += 5;
-      
       // Afficher l'adresse du client si disponible
       const clientAddress = invoice.clientId?.address;
       if (clientAddress) {
@@ -127,6 +114,18 @@ async function generatePDF(invoice) {
         });
         currentY += 5;
       } else {
+        currentY += 5;
+      }
+      
+      // Afficher la description en dessous du numéro client si elle existe
+      if (clientDescription) {
+        doc.fontSize(10)
+           .fillColor('#666666')
+           .text(`Intitulé: ${clientDescription}`, margin + 10, currentY, { width: contentWidth - 10 });
+        currentY += 15;
+        // Réinitialiser la taille et la couleur pour la suite
+        doc.fontSize(11)
+           .fillColor('#000000');
         currentY += 5;
       }
 

@@ -191,8 +191,21 @@ class WorkContractPdfService {
       const baseSalary = contract.salary?.baseSalary || 0;
       // Montants complémentaires de rémunération
       const indemnity = contract.salary?.indemnities || 0; // Indemnité de service rendu
-      const bonuses = contract.salary?.bonuses || 0;       // Primes diverses
-      const totalBonuses = indemnity + bonuses;            // Total primes + indemnités
+      const bonuses = contract.salary?.bonuses || 0;       // Primes diverses (total global)
+
+      // Primes détaillées configurées dans le contrat
+      const salaryDetails = contract.salary || {};
+      const detailedPrimes = [
+        { label: 'Prime d\'ancienneté', value: salaryDetails.seniority || 0 },
+        { label: 'Sursalaire', value: salaryDetails.sursalaire || 0 },
+        { label: 'Prime de responsabilité', value: salaryDetails.responsibility || 0 },
+        { label: 'Prime de risque', value: salaryDetails.risk || 0 },
+        { label: 'Prime de transport', value: salaryDetails.transport || 0 },
+        { label: 'Prime de logement', value: salaryDetails.housingBonus || 0 },
+        { label: 'Autres primes', value: salaryDetails.otherBonuses || 0 }
+      ];
+
+      const totalBonuses = indemnity + bonuses;            // Total primes + indemnités (champ global)
       const totalSalary = baseSalary + totalBonuses;
 
       doc.text(`Le travailleur percevra une rémunération de ${this.formatCurrency(totalSalary)} se composant comme suit :`, margin, doc.y, { width: contentWidth });
@@ -201,18 +214,21 @@ class WorkContractPdfService {
       doc.text(`Salaire de base : ${this.formatCurrency(baseSalary)}`, margin + 20, doc.y, { width: contentWidth - 20 });
       doc.moveDown(0.3);
 
-      if (totalBonuses > 0) {
-        // Afficher le détail : indemnité puis total primes + indemnités
-        doc.text(`Indemnité de service rendu : ${this.formatCurrency(indemnity)}`, margin + 20, doc.y, { width: contentWidth - 20 });
-        doc.moveDown(0.3);
-        doc.text(`Total Primes et indemnités : ${this.formatCurrency(totalBonuses)}`, margin + 20, doc.y, { width: contentWidth - 20 });
-        doc.moveDown(0.5);
-      } else {
-        doc.text(`Indemnité de service rendu : ${this.formatCurrency(indemnity)}`, margin + 20, doc.y, { width: contentWidth - 20 });
-        doc.moveDown(0.3);
-        doc.text(`Total Primes et indemnités : ${this.formatCurrency(totalBonuses)}`, margin + 20, doc.y, { width: contentWidth - 20 });
-        doc.moveDown(0.5);
-      }
+      // Indemnité de service rendu
+      doc.text(`Indemnité de service rendu : ${this.formatCurrency(indemnity)}`, margin + 20, doc.y, { width: contentWidth - 20 });
+      doc.moveDown(0.3);
+
+      // Détail de toutes les primes configurées dans le contrat (afficher uniquement celles > 0)
+      detailedPrimes
+        .filter(p => p.value && p.value !== 0)
+        .forEach(p => {
+          doc.text(`${p.label} : ${this.formatCurrency(p.value)}`, margin + 20, doc.y, { width: contentWidth - 20 });
+          doc.moveDown(0.3);
+        });
+
+      // Rappel du total global primes + indemnités (champ calculé)
+      doc.text(`Total Primes et indemnités : ${this.formatCurrency(totalBonuses)}`, margin + 20, doc.y, { width: contentWidth - 20 });
+      doc.moveDown(0.5);
 
       doc.text('Le paiement du salaire se fera conformément aux dispositions de la loi, et des règlements du Personnel.', margin, doc.y, { width: contentWidth, align: 'justify' });
 
