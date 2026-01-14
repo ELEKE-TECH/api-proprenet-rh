@@ -199,24 +199,26 @@ async function generatePDF(invoice) {
       const totalsX = margin + colWidths.number + colWidths.designation + colWidths.quantity;
       const totalsWidth = colWidths.unitPrice + colWidths.total;
 
-      // Calculer le Total HT (somme des items)
-      const totalHT = invoice.items && invoice.items.length > 0
+      // Calculer le Total HT (somme des items) et arrondir à l'unité
+      const rawTotalHT = invoice.items && invoice.items.length > 0
         ? invoice.items.reduce((sum, item) => sum + (item.totalPrice || 0), 0)
         : 0;
+      const totalHT = Math.round(rawTotalHT);
 
-      // Calculer la TVA
-      const vatRate = invoice.vatRate || 18; // Taux de TVA par défaut 18%
-      const vatAmount = (totalHT * vatRate) / 100;
+      // Calculer la TVA (arrondie à l'unité)
+      const vatRate = invoice.vatRate || 19.25; // Taux de TVA par défaut 19,25%
+      const rawVatAmount = (totalHT * vatRate) / 100;
+      const vatAmount = Math.round(rawVatAmount);
 
-      // Total TTC = Total HT + TVA
+      // Total TTC = Total HT + TVA (entier)
       const totalTTC = totalHT + vatAmount;
 
-      // Fonction pour formater les montants avec 2 décimales
+      // Fonction pour formater les montants sans décimales
       const formatAmount = (amount) => {
         return new Intl.NumberFormat('de-DE', {
           style: 'decimal',
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0
         }).format(amount) + ' FCFA';
       };
 

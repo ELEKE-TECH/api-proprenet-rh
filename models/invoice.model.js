@@ -131,19 +131,25 @@ invoiceSchema.pre('save', async function(next) {
   
   // Calculer le total si les items sont présents
   if (this.items && this.items.length > 0) {
-    // Total HT = somme des items
-    const totalHT = this.items.reduce((sum, item) => {
-      const itemTotal = (item.quantity || 0) * (item.unitPrice || 0);
-      item.totalPrice = itemTotal;
+    // Total HT = somme des items (arrondi à l'unité près)
+    const rawTotalHT = this.items.reduce((sum, item) => {
+      const quantity = item.quantity || 0;
+      const unitPrice = item.unitPrice || 0;
+      const itemTotal = quantity * unitPrice;
+      // Stocker le total de ligne arrondi à l'unité (pas de décimales)
+      item.totalPrice = Math.round(itemTotal);
       return sum + itemTotal;
     }, 0);
+
+    const totalHT = Math.round(rawTotalHT);
     
-    // Calculer la TVA et le Total TTC
+    // Calculer la TVA et le Total TTC (arrondis à l'unité)
     const vatRate = this.vatRate || 19.25; // Taux de TVA par défaut 19,25%
-    const vatAmount = (totalHT * vatRate) / 100;
+    const rawVatAmount = (totalHT * vatRate) / 100;
+    const vatAmount = Math.round(rawVatAmount);
     const totalTTC = totalHT + vatAmount;
     
-    // Le totalAmount stocké est le Total TTC
+    // Le totalAmount stocké est le Total TTC (sans décimales)
     this.totalAmount = totalTTC;
     
     // Toujours régénérer le montant en lettres basé sur le TTC pour s'assurer de la cohérence
