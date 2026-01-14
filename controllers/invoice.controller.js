@@ -91,8 +91,20 @@ exports.findOne = async (req, res) => {
     if (!invoice) {
       return res.status(404).json({ message: 'Facture non trouvée' });
     }
+
+    // S'assurer que le montant en toutes lettres correspond bien au Total TTC
+    // Ceci corrige aussi les anciennes factures dont le montant littéral avait été calculé sur le HT
+    let invoiceObj = invoice.toObject();
+    if (invoiceObj.totalAmount && typeof invoiceObj.totalAmount === 'number') {
+      try {
+        const { numberToWords } = require('../utils/numberToWords');
+        invoiceObj.totalAmountInWords = numberToWords(Math.floor(invoiceObj.totalAmount));
+      } catch (error) {
+        logger.error('Erreur recalcul montant en lettres (findOne):', error);
+      }
+    }
     
-    res.json(invoice);
+    res.json(invoiceObj);
   } catch (error) {
     logger.error('Erreur récupération facture:', error);
     res.status(500).json({ message: error.message });
