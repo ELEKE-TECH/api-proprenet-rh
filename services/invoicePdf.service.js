@@ -162,32 +162,61 @@ async function generatePDF(invoice) {
       doc.moveTo(margin, currentY).lineTo(pageWidth - margin, currentY).stroke();
       currentY += 20;
 
-      // Total
+      // Calculer les totaux
       const totalsX = margin + colWidths.number + colWidths.designation + colWidths.quantity;
       const totalsWidth = colWidths.unitPrice + colWidths.total;
 
+      // Calculer le Total HT (somme des items)
+      const totalHT = invoice.items && invoice.items.length > 0
+        ? invoice.items.reduce((sum, item) => sum + (item.totalPrice || 0), 0)
+        : 0;
+
+      // Calculer la TVA
+      const vatRate = invoice.vatRate || 18; // Taux de TVA par défaut 18%
+      const vatAmount = (totalHT * vatRate) / 100;
+
+      // Total TTC = Total HT + TVA
+      const totalTTC = totalHT + vatAmount;
+
+      // Fonction pour formater les montants avec 2 décimales
+      const formatAmount = (amount) => {
+        return new Intl.NumberFormat('de-DE', {
+          style: 'decimal',
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }).format(amount) + ' FCFA';
+      };
+
+      // Ligne 1: Total Hors Taxe
       doc.font('Helvetica-Bold')
          .fontSize(11)
          .fillColor('#000000')
-         .text('Total:', totalsX, currentY, { width: colWidths.unitPrice, align: 'right' });
-      
-      // Format: 784.167,00 FCFA (avec point comme séparateur de milliers)
-      const totalAmount = invoice.totalAmount || 0;
-      const formattedTotal = new Intl.NumberFormat('de-DE', {
-        style: 'decimal',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }).format(totalAmount) + ' FCFA';
-      doc.text(formattedTotal, totalsX + colWidths.unitPrice, currentY, { width: colWidths.total, align: 'right' });
+         .text('Total Hors Taxe:', totalsX, currentY, { width: colWidths.unitPrice, align: 'right' });
+      doc.text(formatAmount(totalHT), totalsX + colWidths.unitPrice, currentY, { width: colWidths.total, align: 'right' });
+      currentY += 20;
+
+      // Ligne 2: TVA (17A-001)
+      doc.font('Helvetica-Bold')
+         .text(`TVA (17A-001) ${vatRate}%:`, totalsX, currentY, { width: colWidths.unitPrice, align: 'right' });
+      doc.text(formatAmount(vatAmount), totalsX + colWidths.unitPrice, currentY, { width: colWidths.total, align: 'right' });
+      currentY += 20;
+
+      // Ligne 3: Total TTC (en gras, avec ligne de séparation au-dessus)
+      doc.moveTo(margin, currentY - 5).lineTo(pageWidth - margin, currentY - 5).stroke();
+      currentY += 5;
+      doc.font('Helvetica-Bold')
+         .fontSize(12)
+         .text('Total TTC:', totalsX, currentY, { width: colWidths.unitPrice, align: 'right' });
+      doc.text(formatAmount(totalTTC), totalsX + colWidths.unitPrice, currentY, { width: colWidths.total, align: 'right' });
 
       currentY += 30;
 
-      // Montant en lettres
+      // Montant en lettres (basé sur le Total TTC)
       doc.fontSize(11)
          .font('Helvetica')
          .fillColor('#333333');
       
-      const amountInWords = invoice.totalAmountInWords || numberToWords(Math.floor(totalAmount));
+      const amountInWords = invoice.totalAmountInWords || numberToWords(Math.floor(totalTTC));
       doc.text(`Arrêtée la présente facture à la somme de: ${amountInWords} FCFA`, margin, currentY, { 
         width: contentWidth,
         align: 'left'

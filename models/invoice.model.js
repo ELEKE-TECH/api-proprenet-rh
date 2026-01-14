@@ -58,6 +58,13 @@ const invoiceSchema = new Schema({
     required: true,
     min: 0
   },
+  // TVA (Taxe sur la Valeur Ajoutée)
+  vatRate: {
+    type: Number,
+    default: 18, // Taux de TVA par défaut au Tchad (18%)
+    min: 0,
+    max: 100
+  },
   totalAmountInWords: {
     type: String,
     trim: true
@@ -116,13 +123,22 @@ invoiceSchema.pre('save', async function(next) {
   
   // Calculer le total si les items sont présents
   if (this.items && this.items.length > 0) {
-    this.totalAmount = this.items.reduce((sum, item) => {
+    // Total HT = somme des items
+    const totalHT = this.items.reduce((sum, item) => {
       const itemTotal = (item.quantity || 0) * (item.unitPrice || 0);
       item.totalPrice = itemTotal;
       return sum + itemTotal;
     }, 0);
     
-    // Générer le montant en lettres si non fourni
+    // Calculer la TVA et le Total TTC
+    const vatRate = this.vatRate || 18; // Taux de TVA par défaut 18%
+    const vatAmount = (totalHT * vatRate) / 100;
+    const totalTTC = totalHT + vatAmount;
+    
+    // Le totalAmount stocké est le Total TTC
+    this.totalAmount = totalTTC;
+    
+    // Générer le montant en lettres si non fourni (basé sur le TTC)
     if (!this.totalAmountInWords && this.totalAmount) {
       try {
         const { numberToWords } = require('../utils/numberToWords');
