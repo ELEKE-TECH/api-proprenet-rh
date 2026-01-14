@@ -72,7 +72,7 @@ class WorkContractPdfService {
       doc.moveDown(0.5);
       doc.fontSize(11)
          .font('Helvetica')
-         .text('Qualité : Directeur de l\'Ets PROPRENET', margin, doc.y, { width: contentWidth });
+         .text('Qualité : Directrice de l\'Ets PROPRENET', margin, doc.y, { width: contentWidth });
 
       doc.moveDown(0.3);
       doc.text('Nationalité : Tchadienne', margin, doc.y, { width: contentWidth });
