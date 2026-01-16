@@ -96,20 +96,14 @@ exports.generate = async (req, res) => {
       }
     }
 
-    // Préparer les gains (salaire de base par défaut depuis le contrat)
+    // Préparer les gains simplifiés (uniquement les champs essentiels)
     const payrollGains = {
       baseSalary: finalBaseSalary,
-      seniority: gains.seniority || 0,
-      sursalaire: gains.sursalaire || 0,
-      primes: gains.primes || 0,
-      responsibility: gains.responsibility || 0,
-      risk: gains.risk || 0,
       transport: gains.transport || 0,
-      otherBonuses: gains.otherBonuses || 0,
+      risk: gains.risk || 0,
       totalIndemnities: totalIndemnities,
-      housingBonus: gains.housingBonus || 0,
       overtimeHours: gains.overtimeHours || 0,
-      absence: gains.absence || 0
+      primesEtIndemnites: gains.primesEtIndemnites || 0
     };
 
     // Récupérer les avances approuvées non remboursées
@@ -141,13 +135,17 @@ exports.generate = async (req, res) => {
       }
     }
 
-    // Préparer les déductions (inclure les avances dans advance)
+    // Préparer les déductions simplifiées
+    // CNPS et IRPP seront calculés automatiquement par le modèle (4% et 10%)
+    // Autres retenues regroupe fir, advance, reimbursement
+    const autresRetenues = (deductions.fir || 0) + 
+                           ((deductions.advance || 0) + totalAdvanceRecovery) + 
+                           (deductions.reimbursement || 0);
+    
     const payrollDeductions = {
-      cnpsEmployee: deductions.cnpsEmployee || 0,
-      irpp: deductions.irpp || 0,
-      fir: deductions.fir || 0,
-      advance: (deductions.advance || 0) + totalAdvanceRecovery, // Inclure les avances
-      reimbursement: deductions.reimbursement || 0
+      cnpsEmployee: deductions.cnpsEmployee || 0, // Sera calculé automatiquement à 4% si 0
+      irpp: deductions.irpp || 0, // Sera calculé automatiquement à 10% si 0
+      autresRetenues: autresRetenues
     };
 
     // Préparer les charges patronales
@@ -162,24 +160,20 @@ exports.generate = async (req, res) => {
     // Calculer le salaire net initialement (sera recalculé par le pre-save hook mais on l'initialise pour éviter les erreurs)
     const initialGrossSalary = 
       (payrollGains.baseSalary || 0) +
-      (payrollGains.seniority || 0) +
-      (payrollGains.sursalaire || 0) +
-      (payrollGains.primes || 0) +
-      (payrollGains.responsibility || 0) +
-      (payrollGains.risk || 0) +
       (payrollGains.transport || 0) +
-      (payrollGains.otherBonuses || 0) +
+      (payrollGains.risk || 0) +
       (payrollGains.totalIndemnities || 0) +
-      (payrollGains.housingBonus || 0) +
-      (payrollGains.overtimeHours || 0) -
-      (payrollGains.absence || 0);
+      (payrollGains.overtimeHours || 0) +
+      (payrollGains.primesEtIndemnites || 0);
+    
+    // Calculer CNPS (4%) et IRPP (10%) si non fournis
+    const cnpsEmployee = payrollDeductions.cnpsEmployee || Math.round(initialGrossSalary * 0.04);
+    const irpp = payrollDeductions.irpp || Math.round(initialGrossSalary * 0.10);
     
     const initialTotalDeductions = 
-      (payrollDeductions.cnpsEmployee || 0) +
-      (payrollDeductions.irpp || 0) +
-      (payrollDeductions.fir || 0) +
-      (payrollDeductions.advance || 0) +
-      (payrollDeductions.reimbursement || 0);
+      cnpsEmployee +
+      irpp +
+      (payrollDeductions.autresRetenues || 0);
     
     const initialNetAmount = Math.max(0, initialGrossSalary - initialTotalDeductions);
 
@@ -288,6 +282,40 @@ exports.update = async (req, res) => {
       return res.status(400).json({ message: 'Ce bulletin de paie a déjà été payé et ne peut plus être modifié.' });
     }
 
+    // Si la période change, vérifier qu'il n'y a pas de conflit avec un autre salaire
+    if (req.body.periodStart || req.body.periodEnd) {
+      const newPeriodStart = req.body.periodStart ? new Date(req.body.periodStart) : payroll.periodStart;
+      const newPeriodEnd = req.body.periodEnd ? new Date(req.body.periodEnd) : payroll.periodEnd;
+      newPeriodEnd.setHours(23, 59, 59, 999);
+
+      // Vérifier s'il existe un autre salaire (différent de celui qu'on met à jour) pour cette période
+      const conflictingPayroll = await Payroll.findOne({
+        _id: { $ne: payroll._id }, // Exclure le salaire qu'on met à jour
+        agentId: payroll.agentId,
+        $or: [
+          {
+            periodStart: { $lte: newPeriodStart },
+            periodEnd: { $gte: newPeriodStart }
+          },
+          {
+            periodStart: { $lte: newPeriodEnd },
+            periodEnd: { $gte: newPeriodEnd }
+          },
+          {
+            periodStart: { $gte: newPeriodStart },
+            periodEnd: { $lte: newPeriodEnd }
+          }
+        ]
+      });
+
+      if (conflictingPayroll) {
+        return res.status(400).json({
+          message: `Une paie existe déjà pour cette période ou une période qui chevauche (${conflictingPayroll.periodStart.toISOString().split('T')[0]} - ${conflictingPayroll.periodEnd.toISOString().split('T')[0]})`,
+          payroll: conflictingPayroll
+        });
+      }
+    }
+
     // Mettre à jour les champs fournis
     if (req.body.gains) {
       const updatedGains = { ...payroll.gains, ...req.body.gains };
@@ -301,7 +329,64 @@ exports.update = async (req, res) => {
       
       payroll.gains = updatedGains;
     }
-    if (req.body.deductions) payroll.deductions = { ...payroll.deductions, ...req.body.deductions };
+    
+    if (req.body.deductions) {
+      // Récupérer les avances approuvées non remboursées pour cette mise à jour
+      const advances = await Advance.find({
+        agentId: payroll.agentId,
+        status: 'approved',
+        remaining: { $gt: 0 }
+      });
+
+      let totalAdvanceRecovery = 0;
+      const advancesApplied = [];
+      
+      for (const adv of advances) {
+        const recovery = Math.min(adv.monthlyRecovery || 0, adv.remaining);
+        if (recovery > 0) {
+          advancesApplied.push({ 
+            advanceId: adv._id, 
+            amount: recovery 
+          });
+          totalAdvanceRecovery += recovery;
+        }
+      }
+      
+      const updatedDeductions = { ...payroll.deductions, ...req.body.deductions };
+      
+      // Si autresRetenues n'est pas fourni, le calculer à partir des anciens champs ou inclure les avances
+      if (updatedDeductions.autresRetenues === undefined) {
+        const oldDeductions = payroll.deductions || {};
+        updatedDeductions.autresRetenues = (oldDeductions.autresRetenues || 0) + totalAdvanceRecovery;
+      } else {
+        // Si autresRetenues est fourni, ajouter les avances s'il n'y en a pas déjà
+        updatedDeductions.autresRetenues = (updatedDeductions.autresRetenues || 0) + totalAdvanceRecovery;
+      }
+      
+      // Calculer automatiquement CNPS (4%) et IRPP (10%) si non fournis
+      const grossSalary = payroll.gains.grossSalary || 
+        ((payroll.gains.baseSalary || 0) + 
+         (payroll.gains.transport || 0) + 
+         (payroll.gains.risk || 0) + 
+         (payroll.gains.totalIndemnities || 0) + 
+         (payroll.gains.overtimeHours || 0) + 
+         (payroll.gains.primesEtIndemnites || 0));
+      
+      if (!updatedDeductions.cnpsEmployee || updatedDeductions.cnpsEmployee === 0) {
+        updatedDeductions.cnpsEmployee = Math.round(grossSalary * 0.04);
+      }
+      
+      if (!updatedDeductions.irpp || updatedDeductions.irpp === 0) {
+        updatedDeductions.irpp = Math.round(grossSalary * 0.10);
+      }
+      
+      payroll.deductions = updatedDeductions;
+      
+      // Mettre à jour les avances appliquées
+      if (advancesApplied.length > 0) {
+        payroll.advancesApplied = advancesApplied;
+      }
+    }
     if (req.body.employerCharges) payroll.employerCharges = { ...payroll.employerCharges, ...req.body.employerCharges };
     if (req.body.periodStart) payroll.periodStart = new Date(req.body.periodStart);
     if (req.body.periodEnd) {

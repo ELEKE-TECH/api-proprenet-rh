@@ -28,29 +28,21 @@ const payrollSchema = new Schema({
     default: 0,
     min: 0
   },
-  // Gains détaillés selon le format exact du bulletin
+  // Gains simplifiés - uniquement les champs essentiels
   gains: {
     baseSalary: { type: Number, default: 0, min: 0 }, // Salaire de base
-    seniority: { type: Number, default: 0, min: 0 }, // Ancienneté
-    sursalaire: { type: Number, default: 0, min: 0 }, // Sursalaire
-    primes: { type: Number, default: 0, min: 0 }, // Primes (total)
-    responsibility: { type: Number, default: 0, min: 0 }, // Responsabilité
-    risk: { type: Number, default: 0, min: 0 }, // Risque
-    transport: { type: Number, default: 0, min: 0 }, // Transport
-    otherBonuses: { type: Number, default: 0, min: 0 }, // Autres primes
-    totalIndemnities: { type: Number, default: 0, min: 0 }, // Total indemnités
-    housingBonus: { type: Number, default: 0, min: 0 }, // Prime de logement
-    overtimeHours: { type: Number, default: 0, min: 0 }, // Heure supplémentaire
-    absence: { type: Number, default: 0, min: 0 }, // Absence (déduction)
+    transport: { type: Number, default: 0, min: 0 }, // Prime de transport
+    risk: { type: Number, default: 0, min: 0 }, // Prime de risque
+    totalIndemnities: { type: Number, default: 0, min: 0 }, // Indemnité de service rendu (5% auto)
+    overtimeHours: { type: Number, default: 0, min: 0 }, // Heures supplémentaires
+    primesEtIndemnites: { type: Number, default: 0, min: 0 }, // Primes et indemnités (regroupe toutes les autres primes)
     grossSalary: { type: Number, default: 0, min: 0 } // Salaire brut (calculé)
   },
-  // Charges salariales (retenues)
+  // Charges salariales (retenues) simplifiées
   deductions: {
-    cnpsEmployee: { type: Number, default: 0, min: 0 }, // CNPS (part salariale)
-    irpp: { type: Number, default: 0, min: 0 }, // IRPP
-    fir: { type: Number, default: 0, min: 0 }, // FIR
-    advance: { type: Number, default: 0, min: 0 }, // Accompte
-    reimbursement: { type: Number, default: 0, min: 0 }, // Remboursement divers
+    cnpsEmployee: { type: Number, default: 0, min: 0 }, // CNPS (part salariale) - 4% auto
+    irpp: { type: Number, default: 0, min: 0 }, // IRPP - 10% auto
+    autresRetenues: { type: Number, default: 0, min: 0 }, // Autres retenues (regroupe fir, advance, reimbursement)
     totalRetenues: { type: Number, default: 0, min: 0 } // Total retenues (calculé)
   },
   // Charges patronales
@@ -131,31 +123,33 @@ payrollSchema.pre('save', function(next) {
     this.employerCharges = {};
   }
   
-  // Calculer le salaire brut (somme des gains - absence)
-  this.gains.grossSalary = 
-    (this.gains.baseSalary || 0) +
-    (this.gains.seniority || 0) +
-    (this.gains.sursalaire || 0) +
-    (this.gains.primes || 0) +
-    (this.gains.responsibility || 0) +
-    (this.gains.risk || 0) +
-    (this.gains.transport || 0) +
-    (this.gains.otherBonuses || 0) +
-    (this.gains.totalIndemnities || 0) +
-    (this.gains.housingBonus || 0) +
-    (this.gains.overtimeHours || 0) -
-    (this.gains.absence || 0);
+  // Calculer le salaire brut (somme de tous les gains)
+  const grossSalary = (this.gains.baseSalary || 0) + 
+                      (this.gains.transport || 0) + 
+                      (this.gains.risk || 0) + 
+                      (this.gains.totalIndemnities || 0) + 
+                      (this.gains.overtimeHours || 0) + 
+                      (this.gains.primesEtIndemnites || 0);
+  
+  this.gains.grossSalary = grossSalary;
+  
+  // Calculer CNPS (4% du salaire brut) si non défini
+  if (!this.deductions.cnpsEmployee || this.deductions.cnpsEmployee === 0) {
+    this.deductions.cnpsEmployee = Math.round(grossSalary * 0.04);
+  }
+  
+  // Calculer IRPP (10% du salaire brut) si non défini
+  if (!this.deductions.irpp || this.deductions.irpp === 0) {
+    this.deductions.irpp = Math.round(grossSalary * 0.10);
+  }
   
   // Calculer le total des retenues
   this.deductions.totalRetenues = 
     (this.deductions.cnpsEmployee || 0) +
     (this.deductions.irpp || 0) +
-    (this.deductions.fir || 0) +
-    (this.deductions.advance || 0) +
-    (this.deductions.reimbursement || 0);
+    (this.deductions.autresRetenues || 0);
   
   // Calculer le salaire net à payer (OBLIGATOIRE)
-  const grossSalary = this.gains.grossSalary || 0;
   const totalDeductions = this.deductions.totalRetenues || 0;
   this.netAmount = Math.max(0, grossSalary - totalDeductions);
   
@@ -165,10 +159,10 @@ payrollSchema.pre('save', function(next) {
   }
   
   // Calculer les totaux cumulés (pour ce bulletin)
-  this.cumulative.grossSalary = grossSalary;
+  this.cumulative.grossSalary = grossSalary; // Utiliser la variable grossSalary déjà calculée
   this.cumulative.employeeCharges = this.deductions.totalRetenues || 0;
   this.cumulative.employerCharges = this.employerCharges.cnpsEmployer || 0;
-  this.cumulative.taxes = (this.deductions.irpp || 0) + (this.deductions.fir || 0);
+  this.cumulative.taxes = (this.deductions.irpp || 0);
   this.cumulative.overtimeHours = this.gains.overtimeHours || 0;
   this.cumulative.netPayable = this.netAmount;
   this.cumulative.totalCost = grossSalary + (this.employerCharges.cnpsEmployer || 0);

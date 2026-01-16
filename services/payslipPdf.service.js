@@ -141,83 +141,37 @@ class PayslipPdfService {
       doc.text('Montant (FCFA)', colAmount, headerTextY, { width: colWidthAmount, align: 'right' });
       currentY += headerHeight + 5;
 
-      // Récupérer les valeurs
+      // Récupérer les valeurs simplifiées
       const gains = payroll.gains || {};
       const deductions = payroll.deductions || {};
       
-      const baseSalary = safeNumber(gains.baseSalary);
-      const transport = safeNumber(gains.transport);
-      const risk = safeNumber(gains.risk);
-      const totalIndemnities = safeNumber(gains.totalIndemnities);
-      const overtimeHours = safeNumber(gains.overtimeHours);
+      // Arrondir les gains
+      const baseSalaryRounded = Math.round(safeNumber(gains.baseSalary));
+      const transportRounded = Math.round(safeNumber(gains.transport));
+      const riskRounded = Math.round(safeNumber(gains.risk));
+      const totalIndemnitiesRounded = Math.round(safeNumber(gains.totalIndemnities));
+      const overtimeHoursRounded = Math.round(safeNumber(gains.overtimeHours));
+      const primesEtIndemnitesRounded = Math.round(safeNumber(gains.primesEtIndemnites));
       
-      // Calculer primes et indemnités (somme de toutes les primes sauf celles déjà listées séparément)
-      const seniority = safeNumber(gains.seniority);
-      const sursalaire = safeNumber(gains.sursalaire);
-      const responsibility = safeNumber(gains.responsibility);
-      const otherBonuses = safeNumber(gains.otherBonuses);
-      const housingBonus = safeNumber(gains.housingBonus);
-      const primes = safeNumber(gains.primes);
-      
-      // Utiliser le salaire brut calculé par le modèle (qui inclut toutes les primes et déduit l'absence)
+      // Utiliser le salaire brut calculé par le modèle comme source de vérité
       const grossSalaryFromModel = safeNumber(gains.grossSalary);
-      const absence = safeNumber(gains.absence);
-      
-      // Calculer "Primes et indemnités" pour l'affichage
-      // Selon le modèle backend, le grossSalary = baseSalary + seniority + sursalaire + primes + responsibility + 
-      // risk + transport + otherBonuses + totalIndemnities + housingBonus + overtimeHours - absence
-      // Donc "Primes et indemnités" affichées = seniority + sursalaire + primes + responsibility + otherBonuses + housingBonus
-      // (sans transport, risk, totalIndemnities, overtimeHours qui sont affichés séparément)
-      // Arrondir chaque valeur avant de les additionner pour éviter les problèmes d'arrondi
-      let primesEtIndemnites = Math.round(seniority) + Math.round(sursalaire) + Math.round(primes) + 
-                                Math.round(responsibility) + Math.round(otherBonuses) + Math.round(housingBonus);
-      
-      // Arrondir les valeurs de base pour les calculs
-      const baseSalaryRounded = Math.round(baseSalary);
-      const transportRounded = Math.round(transport);
-      const riskRounded = Math.round(risk);
-      const totalIndemnitiesRounded = Math.round(totalIndemnities);
-      const overtimeHoursRounded = Math.round(overtimeHours);
-      
-      // Si le modèle a calculé un grossSalary, utiliser celui-ci comme source de vérité
-      // et ajuster "Primes et indemnités" pour que la somme corresponde exactement
       let grossSalary;
       if (grossSalaryFromModel > 0) {
-        // Le grossSalary du modèle inclut déjà la déduction de l'absence et est arrondi
-        // Ajuster primesEtIndemnites pour que la somme des lignes affichées = grossSalary
-        // primesEtIndemnites = grossSalary - baseSalary - transport - risk - totalIndemnities - overtimeHours
-        const adjustedPrimesEtIndemnites = Math.round(grossSalaryFromModel - baseSalaryRounded - transportRounded - riskRounded - totalIndemnitiesRounded - overtimeHoursRounded);
-        // Utiliser la valeur ajustée si elle est positive (sinon garder le calcul original)
-        if (adjustedPrimesEtIndemnites >= 0) {
-          primesEtIndemnites = adjustedPrimesEtIndemnites;
-        }
-        // Utiliser le salaire brut du modèle comme source de vérité (déjà arrondi)
-        grossSalary = grossSalaryFromModel;
+        grossSalary = Math.round(grossSalaryFromModel);
       } else {
-        // Si pas de grossSalary calculé, calculer manuellement (sans déduire l'absence car elle n'est pas affichée dans les gains)
-        grossSalary = Math.round(baseSalaryRounded + transportRounded + riskRounded + totalIndemnitiesRounded + overtimeHoursRounded + primesEtIndemnites);
+        // Calculer manuellement si non disponible
+        grossSalary = Math.round(baseSalaryRounded + transportRounded + riskRounded + 
+                                 totalIndemnitiesRounded + overtimeHoursRounded + primesEtIndemnitesRounded);
       }
       
-      // Déductions
-      const cnpsEmployee = safeNumber(deductions.cnpsEmployee);
-      const irpp = safeNumber(deductions.irpp);
-      const fir = safeNumber(deductions.fir);
-      const advance = safeNumber(deductions.advance);
-      const reimbursement = safeNumber(deductions.reimbursement);
-      
-      // Arrondir les déductions
-      const cnpsEmployeeRounded = Math.round(cnpsEmployee);
-      const irppRounded = Math.round(irpp);
-      const firRounded = Math.round(fir);
-      const advanceRounded = Math.round(advance);
-      const reimbursementRounded = Math.round(reimbursement);
-      
-      // Autres retenues = toutes les déductions sauf CNPS et IRPP
-      const autresRetenues = Math.round(firRounded + advanceRounded + reimbursementRounded);
+      // Déductions simplifiées
+      const cnpsEmployeeRounded = Math.round(safeNumber(deductions.cnpsEmployee));
+      const irppRounded = Math.round(safeNumber(deductions.irpp));
+      const autresRetenuesRounded = Math.round(safeNumber(deductions.autresRetenues));
       
       // Utiliser le total retenues calculé par le modèle si disponible
       const totalRetenuesFromModel = safeNumber(deductions.totalRetenues);
-      const calculatedTotalRetenues = Math.round(cnpsEmployeeRounded + irppRounded + autresRetenues);
+      const calculatedTotalRetenues = Math.round(cnpsEmployeeRounded + irppRounded + autresRetenuesRounded);
       const totalRetenues = (totalRetenuesFromModel > 0) ? Math.round(totalRetenuesFromModel) : calculatedTotalRetenues;
       
       // Utiliser le salaire net calculé par le modèle
@@ -271,7 +225,7 @@ class PayslipPdfService {
       addRow('Prime de risque', riskRounded);
       addRow('Indemnite Service Rendu', totalIndemnitiesRounded);
       addRow('Heures supplémentaires', overtimeHoursRounded);
-      addRow('Primes et indemnités', Math.round(primesEtIndemnites));
+      addRow('Primes et indemnités', primesEtIndemnitesRounded);
       
       // Ligne de séparation avant Salaire Brut
       currentY += 5;
@@ -295,7 +249,7 @@ class PayslipPdfService {
       
       addRow('CNPS Employé (4%)', cnpsEmployeeRounded);
       addRow('IRPP (10%)', irppRounded);
-      addRow('Autres retenues', autresRetenues);
+      addRow('Autres retenues', autresRetenuesRounded);
       
       // Ligne de séparation avant Total Retenues
       currentY += 5;
