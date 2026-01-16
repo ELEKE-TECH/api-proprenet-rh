@@ -95,7 +95,6 @@ exports.findAll = async (req, res) => {
     const recruitments = await Recruitment.find(query)
       .populate('reviewedBy', 'email')
       .populate('convertedToAgent', 'firstName lastName')
-      .populate('documents')
       .skip(skip)
       .limit(parseInt(limit))
       .sort({ createdAt: -1 });
@@ -165,8 +164,7 @@ exports.update = async (req, res) => {
       { new: true, runValidators: true }
     )
       .populate('reviewedBy', 'email firstName lastName')
-      .populate('convertedToAgent', 'firstName lastName')
-      .populate('documents');
+      .populate('convertedToAgent', 'firstName lastName');
 
     if (!recruitment) {
       return res.status(404).json({ message: 'Candidature non trouvée' });

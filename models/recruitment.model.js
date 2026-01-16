@@ -91,10 +91,6 @@ const recruitmentSchema = new Schema({
   convertedAt: {
     type: Date
   },
-  documents: [{
-    type: Schema.Types.ObjectId,
-    ref: 'Document'
-  }],
   createdAt: { 
     type: Date, 
     default: Date.now 

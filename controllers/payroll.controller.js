@@ -267,6 +267,11 @@ exports.update = async (req, res) => {
       return res.status(404).json({ message: 'Bulletin de paie non trouvé' });
     }
 
+    // Vérifier que le payslip n'est pas encore payé
+    if (payroll.paid) {
+      return res.status(400).json({ message: 'Ce bulletin de paie a déjà été payé et ne peut plus être modifié.' });
+    }
+
     // Mettre à jour les champs fournis
     if (req.body.gains) payroll.gains = { ...payroll.gains, ...req.body.gains };
     if (req.body.deductions) payroll.deductions = { ...payroll.deductions, ...req.body.deductions };
@@ -278,6 +283,8 @@ exports.update = async (req, res) => {
       payroll.month = end.getMonth() + 1;
       payroll.year = end.getFullYear();
     }
+    if (req.body.paymentType) payroll.paymentType = req.body.paymentType;
+    if (req.body.paymentMethod) payroll.paymentMethod = req.body.paymentMethod;
 
     await payroll.save();
 
