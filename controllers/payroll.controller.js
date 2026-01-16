@@ -79,10 +79,26 @@ exports.generate = async (req, res) => {
 
     // Récupérer le salaire de base depuis le contrat
     const baseSalary = activeContract.salary?.baseSalary || 0;
+    const contractIndemnities = activeContract.salary?.indemnities || 0;
+    
+    // Calculer le salaire de base final (utiliser celui fourni ou celui du contrat)
+    const finalBaseSalary = gains.baseSalary !== undefined ? gains.baseSalary : baseSalary;
+    
+    // Calculer automatiquement l'indemnité de service rendu à 5% du salaire de base
+    // si elle n'est pas fournie dans les gains ou est 0
+    let totalIndemnities = gains.totalIndemnities;
+    if (!totalIndemnities || totalIndemnities === 0) {
+      // Utiliser l'indemnité du contrat si elle est définie et > 0, sinon calculer à 5%
+      if (contractIndemnities && contractIndemnities > 0) {
+        totalIndemnities = contractIndemnities;
+      } else {
+        totalIndemnities = Math.round(finalBaseSalary * 0.05);
+      }
+    }
 
     // Préparer les gains (salaire de base par défaut depuis le contrat)
     const payrollGains = {
-      baseSalary: gains.baseSalary !== undefined ? gains.baseSalary : baseSalary,
+      baseSalary: finalBaseSalary,
       seniority: gains.seniority || 0,
       sursalaire: gains.sursalaire || 0,
       primes: gains.primes || 0,
@@ -90,7 +106,7 @@ exports.generate = async (req, res) => {
       risk: gains.risk || 0,
       transport: gains.transport || 0,
       otherBonuses: gains.otherBonuses || 0,
-      totalIndemnities: gains.totalIndemnities || 0,
+      totalIndemnities: totalIndemnities,
       housingBonus: gains.housingBonus || 0,
       overtimeHours: gains.overtimeHours || 0,
       absence: gains.absence || 0
@@ -273,7 +289,18 @@ exports.update = async (req, res) => {
     }
 
     // Mettre à jour les champs fournis
-    if (req.body.gains) payroll.gains = { ...payroll.gains, ...req.body.gains };
+    if (req.body.gains) {
+      const updatedGains = { ...payroll.gains, ...req.body.gains };
+      
+      // Calculer automatiquement l'indemnité de service rendu à 5% du salaire de base
+      // si elle n'est pas fournie ou est 0
+      const baseSalary = updatedGains.baseSalary || payroll.gains.baseSalary || 0;
+      if (!updatedGains.totalIndemnities || updatedGains.totalIndemnities === 0) {
+        updatedGains.totalIndemnities = Math.round(baseSalary * 0.05);
+      }
+      
+      payroll.gains = updatedGains;
+    }
     if (req.body.deductions) payroll.deductions = { ...payroll.deductions, ...req.body.deductions };
     if (req.body.employerCharges) payroll.employerCharges = { ...payroll.employerCharges, ...req.body.employerCharges };
     if (req.body.periodStart) payroll.periodStart = new Date(req.body.periodStart);
