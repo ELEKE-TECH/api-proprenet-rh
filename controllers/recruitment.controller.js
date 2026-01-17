@@ -257,7 +257,8 @@ exports.convertToAgent = async (req, res) => {
         // On laisse hourlyRate à 0 par défaut pour les anciens modes de calcul
         hourlyRate: 0,
         availability: {},
-        status: 'under_verification'
+        status: 'under_verification',
+        paymentMethod: 'cash' // Par défaut, paiement à la caisse pour les nouveaux agents créés depuis le recrutement
       };
 
       agent = new Agent(agentData);

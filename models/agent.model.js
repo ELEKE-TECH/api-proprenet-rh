@@ -89,17 +89,23 @@ const agentSchema = new Schema({
       trim: true
     }
   },
-  // Informations bancaires (obligatoires)
+  // Mode de paiement
+  paymentMethod: {
+    type: String,
+    enum: ['bank_transfer', 'cash'],
+    default: 'bank_transfer'
+  },
+  // Informations bancaires (obligatoires seulement si paymentMethod === 'bank_transfer')
   bankAccount: {
     bankId: {
       type: Schema.Types.ObjectId,
       ref: 'Bank',
-      required: true,
+      required: false, // Rendre optionnel
       index: true
     },
     accountNumber: {
       type: String,
-      required: true,
+      required: false, // Rendre optionnel
       trim: true
     }
   },
@@ -120,6 +126,21 @@ agentSchema.index({ matriculeNumber: 1 });
 // Générer automatiquement le numéro de matricule avant la sauvegarde
 agentSchema.pre('save', async function(next) {
   this.updatedAt = Date.now();
+  
+  // Validation : si le mode de paiement est 'bank_transfer', les informations bancaires sont obligatoires
+  if (this.paymentMethod === 'bank_transfer') {
+    if (!this.bankAccount || !this.bankAccount.bankId || !this.bankAccount.accountNumber) {
+      return next(new Error('Les informations bancaires sont obligatoires lorsque le mode de paiement est "Virement bancaire"'));
+    }
+  }
+  
+  // Si le mode de paiement est 'cash', on peut supprimer les informations bancaires
+  if (this.paymentMethod === 'cash') {
+    if (this.bankAccount) {
+      this.bankAccount.bankId = undefined;
+      this.bankAccount.accountNumber = undefined;
+    }
+  }
   
   // Générer le matricule uniquement si ce n'est pas déjà défini et si c'est un nouveau document
   if ((!this.matriculeNumber || this.matriculeNumber === '') && this.isNew) {

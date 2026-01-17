@@ -47,12 +47,16 @@ exports.create = async (req, res) => {
       hourlyRate: hourlyRate || 0,
       availability: availability || {},
       status: 'under_verification',
-      // Informations bancaires (obligatoires)
-      bankAccount: req.body.bankAccount || {},
+      paymentMethod: req.body.paymentMethod || 'bank_transfer',
       maritalStatus: req.body.maritalStatus,
       identityDocument: req.body.identityDocument,
       birthDate: birthDate ? new Date(birthDate) : undefined
     };
+
+    // Ajouter les informations bancaires seulement si le mode de paiement est 'bank_transfer'
+    if (req.body.paymentMethod === 'bank_transfer' && req.body.bankAccount) {
+      agentData.bankAccount = req.body.bankAccount;
+    }
 
     // N'ajouter userId que s'il est réellement défini
     // (sinon userId: null crée un doublon sur l'index unique userId_1)

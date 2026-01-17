@@ -92,6 +92,20 @@ exports.getStats = async (req, res) => {
       { $group: { _id: '$status', count: { $sum: 1 } } }
     ]);
 
+    // Répartition des agents par mode de paiement
+    const agentsByPaymentMethod = await Agent.aggregate([
+      { 
+        $group: { 
+          _id: { $ifNull: ['$paymentMethod', 'bank_transfer'] }, 
+          count: { $sum: 1 } 
+        } 
+      }
+    ]);
+    
+    // Calculer les totaux depuis l'agrégation
+    const agentsWithBank = agentsByPaymentMethod.find(item => item._id === 'bank_transfer')?.count || 0;
+    const agentsWithCash = agentsByPaymentMethod.find(item => item._id === 'cash')?.count || 0;
+
     // Top 5 clients par nombre de sites
     const topClientsBySites = await Site.aggregate([
       { $group: { _id: '$clientId', siteCount: { $sum: 1 } } },
@@ -119,7 +133,13 @@ exports.getStats = async (req, res) => {
           byStatus: agentsByStatus.reduce((acc, item) => {
             acc[item._id] = item.count;
             return acc;
-          }, {})
+          }, {}),
+          byPaymentMethod: agentsByPaymentMethod.reduce((acc, item) => {
+            acc[item._id] = item.count;
+            return acc;
+          }, {}),
+          withBank: agentsWithBank,
+          withCash: agentsWithCash
         },
         clients: {
           total: totalClients,
