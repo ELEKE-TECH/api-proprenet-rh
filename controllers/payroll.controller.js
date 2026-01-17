@@ -102,8 +102,7 @@ exports.generate = async (req, res) => {
       transport: gains.transport || 0,
       risk: gains.risk || 0,
       totalIndemnities: totalIndemnities,
-      overtimeHours: gains.overtimeHours || 0,
-      primesEtIndemnites: gains.primesEtIndemnites || 0
+      overtimeHours: gains.overtimeHours || 0
     };
 
     // Récupérer les avances approuvées non remboursées
@@ -135,16 +134,13 @@ exports.generate = async (req, res) => {
       }
     }
 
-    // Préparer les déductions simplifiées
-    // CNPS et IRPP seront calculés automatiquement par le modèle (4% et 10%)
+    // Préparer les déductions simplifiées (sans CNPS et IRPP)
     // Autres retenues regroupe fir, advance, reimbursement
     const autresRetenues = (deductions.fir || 0) + 
                            ((deductions.advance || 0) + totalAdvanceRecovery) + 
                            (deductions.reimbursement || 0);
     
     const payrollDeductions = {
-      cnpsEmployee: deductions.cnpsEmployee || 0, // Sera calculé automatiquement à 4% si 0
-      irpp: deductions.irpp || 0, // Sera calculé automatiquement à 10% si 0
       autresRetenues: autresRetenues
     };
 
@@ -163,17 +159,10 @@ exports.generate = async (req, res) => {
       (payrollGains.transport || 0) +
       (payrollGains.risk || 0) +
       (payrollGains.totalIndemnities || 0) +
-      (payrollGains.overtimeHours || 0) +
-      (payrollGains.primesEtIndemnites || 0);
+      (payrollGains.overtimeHours || 0);
     
-    // Calculer CNPS (4%) et IRPP (10%) si non fournis
-    const cnpsEmployee = payrollDeductions.cnpsEmployee || Math.round(initialGrossSalary * 0.04);
-    const irpp = payrollDeductions.irpp || Math.round(initialGrossSalary * 0.10);
-    
-    const initialTotalDeductions = 
-      cnpsEmployee +
-      irpp +
-      (payrollDeductions.autresRetenues || 0);
+    // Calculer le total des déductions (sans CNPS et IRPP)
+    const initialTotalDeductions = (payrollDeductions.autresRetenues || 0);
     
     const initialNetAmount = Math.max(0, initialGrossSalary - initialTotalDeductions);
 
@@ -363,22 +352,9 @@ exports.update = async (req, res) => {
         updatedDeductions.autresRetenues = (updatedDeductions.autresRetenues || 0) + totalAdvanceRecovery;
       }
       
-      // Calculer automatiquement CNPS (4%) et IRPP (10%) si non fournis
-      const grossSalary = payroll.gains.grossSalary || 
-        ((payroll.gains.baseSalary || 0) + 
-         (payroll.gains.transport || 0) + 
-         (payroll.gains.risk || 0) + 
-         (payroll.gains.totalIndemnities || 0) + 
-         (payroll.gains.overtimeHours || 0) + 
-         (payroll.gains.primesEtIndemnites || 0));
-      
-      if (!updatedDeductions.cnpsEmployee || updatedDeductions.cnpsEmployee === 0) {
-        updatedDeductions.cnpsEmployee = Math.round(grossSalary * 0.04);
-      }
-      
-      if (!updatedDeductions.irpp || updatedDeductions.irpp === 0) {
-        updatedDeductions.irpp = Math.round(grossSalary * 0.10);
-      }
+      // Supprimer CNPS et IRPP s'ils existent dans les anciennes données
+      delete updatedDeductions.cnpsEmployee;
+      delete updatedDeductions.irpp;
       
       payroll.deductions = updatedDeductions;
       

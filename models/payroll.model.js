@@ -35,13 +35,10 @@ const payrollSchema = new Schema({
     risk: { type: Number, default: 0, min: 0 }, // Prime de risque
     totalIndemnities: { type: Number, default: 0, min: 0 }, // Indemnité de service rendu (5% auto)
     overtimeHours: { type: Number, default: 0, min: 0 }, // Heures supplémentaires
-    primesEtIndemnites: { type: Number, default: 0, min: 0 }, // Primes et indemnités (regroupe toutes les autres primes)
     grossSalary: { type: Number, default: 0, min: 0 } // Salaire brut (calculé)
   },
-  // Charges salariales (retenues) simplifiées
+  // Charges salariales (retenues) simplifiées (sans CNPS et IRPP)
   deductions: {
-    cnpsEmployee: { type: Number, default: 0, min: 0 }, // CNPS (part salariale) - 4% auto
-    irpp: { type: Number, default: 0, min: 0 }, // IRPP - 10% auto
     autresRetenues: { type: Number, default: 0, min: 0 }, // Autres retenues (regroupe fir, advance, reimbursement)
     totalRetenues: { type: Number, default: 0, min: 0 } // Total retenues (calculé)
   },
@@ -128,8 +125,7 @@ payrollSchema.pre('save', function(next) {
                       (this.gains.transport || 0) + 
                       (this.gains.risk || 0) + 
                       (this.gains.totalIndemnities || 0) + 
-                      (this.gains.overtimeHours || 0) + 
-                      (this.gains.primesEtIndemnites || 0);
+                      (this.gains.overtimeHours || 0);
   
   this.gains.grossSalary = grossSalary;
   
@@ -162,7 +158,7 @@ payrollSchema.pre('save', function(next) {
   this.cumulative.grossSalary = grossSalary; // Utiliser la variable grossSalary déjà calculée
   this.cumulative.employeeCharges = this.deductions.totalRetenues || 0;
   this.cumulative.employerCharges = this.employerCharges.cnpsEmployer || 0;
-  this.cumulative.taxes = (this.deductions.irpp || 0);
+  this.cumulative.taxes = 0; // Plus de taxes (IRPP supprimé)
   this.cumulative.overtimeHours = this.gains.overtimeHours || 0;
   this.cumulative.netPayable = this.netAmount;
   this.cumulative.totalCost = grossSalary + (this.employerCharges.cnpsEmployer || 0);

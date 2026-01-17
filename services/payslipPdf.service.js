@@ -151,7 +151,6 @@ class PayslipPdfService {
       const riskRounded = Math.round(safeNumber(gains.risk));
       const totalIndemnitiesRounded = Math.round(safeNumber(gains.totalIndemnities));
       const overtimeHoursRounded = Math.round(safeNumber(gains.overtimeHours));
-      const primesEtIndemnitesRounded = Math.round(safeNumber(gains.primesEtIndemnites));
       
       // Utiliser le salaire brut calculé par le modèle comme source de vérité
       const grossSalaryFromModel = safeNumber(gains.grossSalary);
@@ -161,17 +160,15 @@ class PayslipPdfService {
       } else {
         // Calculer manuellement si non disponible
         grossSalary = Math.round(baseSalaryRounded + transportRounded + riskRounded + 
-                                 totalIndemnitiesRounded + overtimeHoursRounded + primesEtIndemnitesRounded);
+                                 totalIndemnitiesRounded + overtimeHoursRounded);
       }
       
-      // Déductions simplifiées
-      const cnpsEmployeeRounded = Math.round(safeNumber(deductions.cnpsEmployee));
-      const irppRounded = Math.round(safeNumber(deductions.irpp));
+      // Déductions simplifiées (sans CNPS et IRPP)
       const autresRetenuesRounded = Math.round(safeNumber(deductions.autresRetenues));
       
       // Utiliser le total retenues calculé par le modèle si disponible
       const totalRetenuesFromModel = safeNumber(deductions.totalRetenues);
-      const calculatedTotalRetenues = Math.round(cnpsEmployeeRounded + irppRounded + autresRetenuesRounded);
+      const calculatedTotalRetenues = Math.round(autresRetenuesRounded);
       const totalRetenues = (totalRetenuesFromModel > 0) ? Math.round(totalRetenuesFromModel) : calculatedTotalRetenues;
       
       // Utiliser le salaire net calculé par le modèle
@@ -225,7 +222,6 @@ class PayslipPdfService {
       addRow('Prime de risque', riskRounded);
       addRow('Indemnite Service Rendu', totalIndemnitiesRounded);
       addRow('Heures supplémentaires', overtimeHoursRounded);
-      addRow('Primes et indemnités', primesEtIndemnitesRounded);
       
       // Ligne de séparation avant Salaire Brut
       currentY += 5;
@@ -238,29 +234,29 @@ class PayslipPdfService {
       
       addRow('Salaire Brut', grossSalary, true, true);
       
-      // Ligne de séparation avant les déductions
-      currentY += 5;
-      doc.strokeColor('#e2e8f0')
-         .lineWidth(0.5)
-         .moveTo(margin, currentY)
-         .lineTo(margin + contentWidth, currentY)
-         .stroke();
-      currentY += 8;
-      
-      addRow('CNPS Employé (4%)', cnpsEmployeeRounded);
-      addRow('IRPP (10%)', irppRounded);
-      addRow('Autres retenues', autresRetenuesRounded);
-      
-      // Ligne de séparation avant Total Retenues
-      currentY += 5;
-      doc.strokeColor('#1e40af')
-         .lineWidth(1)
-         .moveTo(margin, currentY)
-         .lineTo(margin + contentWidth, currentY)
-         .stroke();
-      currentY += 8;
-      
-      addRow('Total Retenues', totalRetenues, true, true);
+      // Ligne de séparation avant les déductions (seulement si il y a des retenues)
+      if (autresRetenuesRounded > 0) {
+        currentY += 5;
+        doc.strokeColor('#e2e8f0')
+           .lineWidth(0.5)
+           .moveTo(margin, currentY)
+           .lineTo(margin + contentWidth, currentY)
+           .stroke();
+        currentY += 8;
+        
+        addRow('Autres retenues', autresRetenuesRounded);
+        
+        // Ligne de séparation avant Total Retenues
+        currentY += 5;
+        doc.strokeColor('#1e40af')
+           .lineWidth(1)
+           .moveTo(margin, currentY)
+           .lineTo(margin + contentWidth, currentY)
+           .stroke();
+        currentY += 8;
+        
+        addRow('Total Retenues', totalRetenues, true, true);
+      }
       
       // Ligne de séparation avant Salaire Net
       currentY += 5;
