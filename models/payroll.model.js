@@ -129,25 +129,12 @@ payrollSchema.pre('save', function(next) {
   
   this.gains.grossSalary = grossSalary;
   
-  // Calculer CNPS (4% du salaire brut) si non défini
-  if (!this.deductions.cnpsEmployee || this.deductions.cnpsEmployee === 0) {
-    this.deductions.cnpsEmployee = Math.round(grossSalary * 0.04);
-  }
+  // Pour le moment, aucune retenue n'est appliquée
+  // Le total des retenues = uniquement autresRetenues (si défini)
+  this.deductions.totalRetenues = this.deductions.autresRetenues || 0;
   
-  // Calculer IRPP (10% du salaire brut) si non défini
-  if (!this.deductions.irpp || this.deductions.irpp === 0) {
-    this.deductions.irpp = Math.round(grossSalary * 0.10);
-  }
-  
-  // Calculer le total des retenues
-  this.deductions.totalRetenues = 
-    (this.deductions.cnpsEmployee || 0) +
-    (this.deductions.irpp || 0) +
-    (this.deductions.autresRetenues || 0);
-  
-  // Calculer le salaire net à payer (OBLIGATOIRE)
-  const totalDeductions = this.deductions.totalRetenues || 0;
-  this.netAmount = Math.max(0, grossSalary - totalDeductions);
+  // Calculer le salaire net à payer = salaire brut (pas de retenues pour le moment)
+  this.netAmount = grossSalary;
   
   // S'assurer que cumulative existe
   if (!this.cumulative) {

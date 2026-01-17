@@ -161,10 +161,9 @@ exports.generate = async (req, res) => {
       (payrollGains.totalIndemnities || 0) +
       (payrollGains.overtimeHours || 0);
     
-    // Calculer le total des déductions (sans CNPS et IRPP)
-    const initialTotalDeductions = (payrollDeductions.autresRetenues || 0);
-    
-    const initialNetAmount = Math.max(0, initialGrossSalary - initialTotalDeductions);
+    // Pour le moment, aucune retenue n'est appliquée
+    // Le salaire net = salaire brut (pas de déductions)
+    const initialNetAmount = initialGrossSalary;
 
     // Créer le bulletin (les totaux seront calculés automatiquement par le pre-save hook)
     const payroll = new Payroll({
