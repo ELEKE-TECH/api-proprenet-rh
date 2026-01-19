@@ -359,10 +359,24 @@ exports.update = async (req, res) => {
       delete agentUpdateData.baseSalary;
     }
 
+    // Si le mode de paiement est 'cash', supprimer les coordonnées bancaires
+    if (agentUpdateData.paymentMethod === 'cash') {
+      agentUpdateData.bankAccount = undefined;
+    }
+
+    // Préparer l'opération de mise à jour
+    const updateOperation = { $set: agentUpdateData };
+    
+    // Si bankAccount doit être supprimé, utiliser $unset
+    if (agentUpdateData.paymentMethod === 'cash' && agentUpdateData.bankAccount === undefined) {
+      updateOperation.$unset = { bankAccount: '' };
+      delete updateOperation.$set.bankAccount;
+    }
+
     // Mettre à jour l'agent
     const updatedAgent = await Agent.findByIdAndUpdate(
       id,
-      { $set: agentUpdateData },
+      updateOperation,
       { new: true, runValidators: true }
     )
     .populate('userId', 'email phone')

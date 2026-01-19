@@ -2,10 +2,12 @@ const Payroll = require('../models/payroll.model');
 const Agent = require('../models/agent.model');
 const Advance = require('../models/advance.model');
 const WorkContract = require('../models/workContract.model');
+const Site = require('../models/site.model');
 const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 const payslipPdfService = require('../services/payslipPdf.service');
 const { generateCashPayrollPDF } = require('../services/cashPayrollPdf.service');
+const { generateCashPayrollExcel } = require('../services/cashPayrollExcel.service');
 
 // Générer la paie pour un agent
 exports.generate = async (req, res) => {
@@ -14,6 +16,7 @@ exports.generate = async (req, res) => {
       agentId,
       periodStart,
       periodEnd,
+      paymentMethod,
       gains = {},
       deductions = {},
       employerCharges = {}
@@ -167,6 +170,9 @@ exports.generate = async (req, res) => {
     // Le salaire net = salaire brut (pas de déductions)
     const initialNetAmount = initialGrossSalary;
 
+    // Utiliser le paymentMethod de l'agent par défaut si non spécifié dans la requête
+    const finalPaymentMethod = paymentMethod || agent.paymentMethod || 'bank_transfer';
+
     // Créer le bulletin (les totaux seront calculés automatiquement par le pre-save hook)
     const payroll = new Payroll({
       agentId,
@@ -175,6 +181,7 @@ exports.generate = async (req, res) => {
       month,
       year,
       paymentType: 'fixed', // Par défaut, mensuel
+      paymentMethod: finalPaymentMethod, // Mode de paiement (cash, bank_transfer, etc.)
       gains: payrollGains,
       deductions: payrollDeductions,
       employerCharges: payrollEmployerCharges,
@@ -264,16 +271,13 @@ exports.findAll = async (req, res) => {
       }
     }
 
-    // Filtre par site : trouver les agents avec des contrats sur ce site
+    // Filtre par site : trouver les agents assignés à ce site
     if (siteId) {
-      const contractsWithSite = await WorkContract.find({
-        siteId: siteId,
-        status: 'active'
-      }).select('agentId');
+      // Récupérer le site avec ses agents assignés
+      const site = await Site.findById(siteId).select('agents').lean();
       
-      const agentIdsWithSite = contractsWithSite.map(c => c.agentId.toString());
-      
-      if (agentIdsWithSite.length === 0) {
+      if (!site || !site.agents || site.agents.length === 0) {
+        logger.warn(`[findAll] Aucun agent assigné au site ${siteId}`);
         return res.json({
           payrolls: [],
           pagination: {
@@ -285,11 +289,16 @@ exports.findAll = async (req, res) => {
         });
       }
       
+      const agentIdsWithSite = site.agents.map(id => id.toString());
+      logger.info(`[findAll] Agents assignés au site ${siteId}: ${agentIdsWithSite.length} agents`);
+      
       // Combiner avec les filtres existants
       if (query.agentId) {
         if (typeof query.agentId === 'object' && query.agentId.$in) {
           // Intersection des deux filtres
+          const beforeFilter = query.agentId.$in.length;
           query.agentId.$in = query.agentId.$in.filter(id => agentIdsWithSite.includes(id.toString()));
+          logger.info(`[findAll] Filtrage combiné: ${beforeFilter} -> ${query.agentId.$in.length} agents`);
           if (query.agentId.$in.length === 0) {
             return res.json({
               payrolls: [],
@@ -304,6 +313,7 @@ exports.findAll = async (req, res) => {
         } else {
           // Vérifier si l'agent spécifié est dans la liste
           if (!agentIdsWithSite.includes(query.agentId.toString())) {
+            logger.warn(`[findAll] L'agent ${query.agentId} n'est pas assigné au site ${siteId}`);
             return res.json({
               payrolls: [],
               pagination: {
@@ -317,6 +327,7 @@ exports.findAll = async (req, res) => {
         }
       } else {
         query.agentId = { $in: agentIdsWithSite };
+        logger.info(`[findAll] Filtrage par site appliqué: ${agentIdsWithSite.length} agents`);
       }
     }
 
@@ -337,7 +348,14 @@ exports.findAll = async (req, res) => {
             model: 'User'
           }
         })
-        .populate('workContractId', 'position contractType')
+        .populate({
+          path: 'workContractId',
+          select: 'position contractType siteId',
+          populate: {
+            path: 'siteId',
+            select: 'name'
+          }
+        })
         .sort({ periodEnd: -1, createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit));
@@ -361,7 +379,14 @@ exports.findAll = async (req, res) => {
       // Populate simple pour les autres cas
       payrolls = await Payroll.find(query)
         .populate('agentId', 'firstName lastName')
-        .populate('workContractId', 'position contractType')
+        .populate({
+          path: 'workContractId',
+          select: 'position contractType siteId',
+          populate: {
+            path: 'siteId',
+            select: 'name'
+          }
+        })
         .sort({ periodEnd: -1, createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit));
@@ -370,11 +395,14 @@ exports.findAll = async (req, res) => {
     const total = await Payroll.countDocuments(query);
 
     // Debug: logger les premiers bulletins pour vérifier le populate
-    if (periodStart && periodEnd && payrolls.length > 0) {
-      logger.info(`Payrolls trouvés: ${payrolls.length}, premier agent:`, {
+    logger.info(`[findAll] Requête finale:`, JSON.stringify(query));
+    logger.info(`[findAll] Payrolls trouvés: ${payrolls.length}, Total: ${total}`);
+    if (payrolls.length > 0) {
+      logger.info(`[findAll] Premier payroll:`, {
         agentId: payrolls[0].agentId?._id,
         agentName: payrolls[0].agentId ? `${payrolls[0].agentId.firstName} ${payrolls[0].agentId.lastName}` : 'N/A',
-        bankAccount: payrolls[0].agentId?.bankAccount
+        workContractId: payrolls[0].workContractId?._id,
+        workContractSiteId: payrolls[0].workContractId?.siteId
       });
     }
 
@@ -709,10 +737,10 @@ exports.generatePayslip = async (req, res) => {
   }
 };
 
-// Générer l'état de salaire du personnel payé en billetage (caisse)
+// Générer l'état de salaire du personnel payé en billetage (caisse) - PDF
 exports.generateCashPayrollState = async (req, res) => {
   try {
-    const { periodStart, periodEnd } = req.query;
+    const { periodStart, periodEnd, siteId } = req.query;
 
     if (!periodStart || !periodEnd) {
       return res.status(400).json({ message: 'Les dates de début et de fin sont requises.' });
@@ -722,20 +750,51 @@ exports.generateCashPayrollState = async (req, res) => {
     const end = new Date(periodEnd);
     end.setHours(23, 59, 59, 999);
 
-    // Trouver les bulletins de paie payés en espèces (cash) pour cette période
-    // On filtre directement par paymentMethod du Payroll, pas celui de l'Agent
-    const payrolls = await Payroll.find({
+    // Construire la requête - vérifier si la période du payroll chevauche la période recherchée
+    let query = {
       paymentMethod: 'cash',
-      periodStart: { $gte: start },
-      periodEnd: { $lte: end }
-    })
+      $or: [
+        // Période qui commence avant ou pendant la période recherchée et se termine après ou pendant
+        {
+          periodStart: { $lte: end },
+          periodEnd: { $gte: start }
+        }
+      ]
+    };
+
+    // Filtrer par site si fourni
+    if (siteId) {
+      // Récupérer les agents assignés à ce site
+      const site = await Site.findById(siteId).select('agents').lean();
+      
+      if (!site || !site.agents || site.agents.length === 0) {
+        logger.warn(`[PDF] Aucun agent assigné au site ${siteId}`);
+        return res.status(404).json({ message: 'Aucun employé assigné à ce site.' });
+      }
+      
+      const agentIdsWithSite = site.agents.map(id => id.toString());
+      logger.info(`[PDF] Agents assignés au site ${siteId}: ${agentIdsWithSite.length} agents`);
+      query.agentId = { $in: agentIdsWithSite };
+    }
+
+    // Trouver les bulletins de paie payés en espèces (cash) pour cette période
+    logger.info(`[PDF] Recherche de payrolls avec la requête: ${JSON.stringify(query)}`);
+    const payrolls = await Payroll.find(query)
       .populate({
         path: 'agentId',
         select: 'firstName lastName matriculeNumber'
       })
-      .populate('workContractId', 'position')
+      .populate({
+        path: 'workContractId',
+        select: 'position siteId',
+        populate: {
+          path: 'siteId',
+          select: 'name'
+        }
+      })
       .sort({ 'agentId.lastName': 1, 'agentId.firstName': 1 });
 
+    logger.info(`[PDF] Payrolls trouvés: ${payrolls.length}`);
     if (payrolls.length === 0) {
       return res.status(404).json({ message: 'Aucun bulletin de paie trouvé pour cette période.' });
     }
@@ -744,11 +803,99 @@ exports.generateCashPayrollState = async (req, res) => {
     const pdfBuffer = await generateCashPayrollPDF(payrolls, start, end);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=etat-salaire-billetage-${periodStart}-${periodEnd}.pdf`);
+    const siteName = siteId ? 'site' : 'tous';
+    res.setHeader('Content-Disposition', `attachment; filename=etat-billetage-${siteName}-${periodStart}-${periodEnd}.pdf`);
     
     res.send(pdfBuffer);
   } catch (error) {
     logger.error('Erreur génération état salaire billetage:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Exporter en Excel les employés payés en billetage
+exports.exportCashPayrollsExcel = async (req, res) => {
+  try {
+    const { periodStart, periodEnd, siteId } = req.query;
+
+    if (!periodStart || !periodEnd) {
+      return res.status(400).json({ message: 'Les dates de début et de fin sont requises.' });
+    }
+
+    const start = new Date(periodStart);
+    const end = new Date(periodEnd);
+    end.setHours(23, 59, 59, 999);
+
+    // Construire la requête - vérifier si la période du payroll chevauche la période recherchée
+    let query = {
+      paymentMethod: 'cash',
+      $or: [
+        // Période qui commence avant ou pendant la période recherchée et se termine après ou pendant
+        {
+          periodStart: { $lte: end },
+          periodEnd: { $gte: start }
+        }
+      ]
+    };
+
+    let siteName = null;
+
+    // Filtrer par site si fourni
+    if (siteId) {
+      // Récupérer le site avec ses agents assignés
+      const site = await Site.findById(siteId).select('agents name').lean();
+      
+      if (!site) {
+        logger.warn(`[Excel] Site ${siteId} non trouvé`);
+        return res.status(404).json({ message: 'Site non trouvé.' });
+      }
+      
+      if (site.name) {
+        siteName = site.name;
+      }
+      
+      if (!site.agents || site.agents.length === 0) {
+        logger.warn(`[Excel] Aucun agent assigné au site ${siteId}`);
+        return res.status(404).json({ message: 'Aucun employé assigné à ce site.' });
+      }
+      
+      const agentIdsWithSite = site.agents.map(id => id.toString());
+      logger.info(`[Excel] Agents assignés au site ${siteId}: ${agentIdsWithSite.length} agents`);
+      query.agentId = { $in: agentIdsWithSite };
+    }
+
+    // Trouver les bulletins de paie payés en espèces (cash) pour cette période
+    logger.info(`[Excel] Recherche de payrolls avec la requête: ${JSON.stringify(query)}`);
+    const payrolls = await Payroll.find(query)
+      .populate({
+        path: 'agentId',
+        select: 'firstName lastName matriculeNumber'
+      })
+      .populate({
+        path: 'workContractId',
+        select: 'position siteId',
+        populate: {
+          path: 'siteId',
+          select: 'name'
+        }
+      })
+      .sort({ 'agentId.lastName': 1, 'agentId.firstName': 1 });
+
+    logger.info(`[Excel] Payrolls trouvés: ${payrolls.length}`);
+    if (payrolls.length === 0) {
+      return res.status(404).json({ message: 'Aucun bulletin de paie trouvé pour cette période.' });
+    }
+
+    // Générer l'Excel
+    const excelBuffer = await generateCashPayrollExcel(payrolls, start, end, siteName);
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const siteNameForFile = siteName || 'tous';
+    res.setHeader('Content-Disposition', `attachment; filename=liste-billetage-${siteNameForFile}-${periodStart}-${periodEnd}.xlsx`);
+    
+    res.send(excelBuffer);
+  } catch (error) {
+    logger.error('Erreur export Excel billetage:', error);
     res.status(500).json({ message: error.message });
   }
 };

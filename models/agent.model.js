@@ -134,12 +134,9 @@ agentSchema.pre('save', async function(next) {
     }
   }
   
-  // Si le mode de paiement est 'cash', on peut supprimer les informations bancaires
+  // Si le mode de paiement est 'cash', supprimer complètement les informations bancaires
   if (this.paymentMethod === 'cash') {
-    if (this.bankAccount) {
-      this.bankAccount.bankId = undefined;
-      this.bankAccount.accountNumber = undefined;
-    }
+    this.bankAccount = undefined;
   }
   
   // Générer le matricule uniquement si ce n'est pas déjà défini et si c'est un nouveau document
