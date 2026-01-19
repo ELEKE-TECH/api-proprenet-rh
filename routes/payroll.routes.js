@@ -8,6 +8,8 @@ const { verifyPermission } = require('../middlewares/verify.permission');
 router.get('/', authJwt.verifyToken, verifyPermission('payrolls', 'read'), payrollController.findAll);
 // Route pour récupérer les bulletins par banque (AVANT la route :id pour éviter les conflits)
 router.get('/bank/:bankId', authJwt.verifyToken, verifyPermission('payrolls', 'read'), payrollController.findByBank);
+// Route pour générer l'état de salaire billetage (AVANT la route :id pour éviter les conflits)
+router.get('/cash/state', authJwt.verifyToken, verifyPermission('payrolls', 'read'), payrollController.generateCashPayrollState);
 // router.get('/export', authJwt.verifyToken, verifyPermission('payrolls', 'export'), payrollController.exportCSV);
 router.post('/generate', authJwt.verifyToken, verifyPermission('payrolls', 'create'), payrollController.generate);
 router.get('/:id/payslip', authJwt.verifyToken, verifyPermission('payrolls', 'read'), payrollController.generatePayslip);

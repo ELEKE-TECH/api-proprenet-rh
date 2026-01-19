@@ -5,6 +5,7 @@ const WorkContract = require('../models/workContract.model');
 const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 const payslipPdfService = require('../services/payslipPdf.service');
+const { generateCashPayrollPDF } = require('../services/cashPayrollPdf.service');
 
 // Générer la paie pour un agent
 exports.generate = async (req, res) => {
@@ -203,13 +204,14 @@ exports.generate = async (req, res) => {
 // Obtenir tous les bulletins de paie
 exports.findAll = async (req, res) => {
   try {
-    const { agentId, month, year, paid, periodStart, periodEnd, siteId, bankId, page = 1, limit = 20 } = req.query;
+    const { agentId, month, year, paid, periodStart, periodEnd, siteId, bankId, paymentMethod, page = 1, limit = 20 } = req.query;
     
     const query = {};
     if (agentId) query.agentId = agentId;
     if (month) query.month = parseInt(month);
     if (year) query.year = parseInt(year);
     if (paid !== undefined) query.paid = paid === 'true';
+    if (paymentMethod) query.paymentMethod = paymentMethod;
     if (periodStart) {
       const start = new Date(periodStart);
       query.periodStart = { $gte: start };
@@ -704,6 +706,50 @@ exports.generatePayslip = async (req, res) => {
       // Si les en-têtes ont déjà été envoyés, on ne peut plus rien faire
       res.end();
     }
+  }
+};
+
+// Générer l'état de salaire du personnel payé en billetage (caisse)
+exports.generateCashPayrollState = async (req, res) => {
+  try {
+    const { periodStart, periodEnd } = req.query;
+
+    if (!periodStart || !periodEnd) {
+      return res.status(400).json({ message: 'Les dates de début et de fin sont requises.' });
+    }
+
+    const start = new Date(periodStart);
+    const end = new Date(periodEnd);
+    end.setHours(23, 59, 59, 999);
+
+    // Trouver les bulletins de paie payés en espèces (cash) pour cette période
+    // On filtre directement par paymentMethod du Payroll, pas celui de l'Agent
+    const payrolls = await Payroll.find({
+      paymentMethod: 'cash',
+      periodStart: { $gte: start },
+      periodEnd: { $lte: end }
+    })
+      .populate({
+        path: 'agentId',
+        select: 'firstName lastName matriculeNumber'
+      })
+      .populate('workContractId', 'position')
+      .sort({ 'agentId.lastName': 1, 'agentId.firstName': 1 });
+
+    if (payrolls.length === 0) {
+      return res.status(404).json({ message: 'Aucun bulletin de paie trouvé pour cette période.' });
+    }
+
+    // Générer le PDF
+    const pdfBuffer = await generateCashPayrollPDF(payrolls, start, end);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=etat-salaire-billetage-${periodStart}-${periodEnd}.pdf`);
+    
+    res.send(pdfBuffer);
+  } catch (error) {
+    logger.error('Erreur génération état salaire billetage:', error);
+    res.status(500).json({ message: error.message });
   }
 };
 
