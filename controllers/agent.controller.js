@@ -111,6 +111,8 @@ exports.findAll = async (req, res) => {
       minRate,
       maxRate,
       search,
+      siteId,
+      bankId,
       page = 1,
       limit = 10
     } = req.query;
@@ -130,6 +132,11 @@ exports.findAll = async (req, res) => {
       query.hourlyRate = {};
       if (minRate) query.hourlyRate.$gte = parseFloat(minRate);
       if (maxRate) query.hourlyRate.$lte = parseFloat(maxRate);
+    }
+
+    // Filtre par banque
+    if (bankId) {
+      query['bankAccount.bankId'] = bankId;
     }
 
     // Recherche textuelle
@@ -166,14 +173,26 @@ exports.findAll = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const agents = await Agent.find(query)
+    let agents = await Agent.find(query)
       .populate('userId', 'email phone')
       .populate('bankAccount.bankId', 'name code')
       .skip(skip)
       .limit(parseInt(limit))
       .sort({ createdAt: -1 });
 
-    const total = await Agent.countDocuments(query);
+    // Filtre par site (via les contrats actifs)
+    if (siteId) {
+      const WorkContract = require('../models/workContract.model');
+      const contractsWithSite = await WorkContract.find({
+        siteId: siteId,
+        status: 'active'
+      }).select('agentId');
+      
+      const agentIdsWithSite = contractsWithSite.map(c => c.agentId.toString());
+      agents = agents.filter(agent => agentIdsWithSite.includes(agent._id.toString()));
+    }
+
+    const total = siteId ? agents.length : await Agent.countDocuments(query);
 
     // Récupérer les salaires depuis les contrats actifs
     const WorkContract = require('../models/workContract.model');
@@ -181,7 +200,7 @@ exports.findAll = async (req, res) => {
     const activeContracts = await WorkContract.find({
       agentId: { $in: agentIds },
       status: 'active'
-    }).select('agentId salary');
+    }).select('agentId salary siteId');
 
     // Créer un map des salaires par agent
     const salaryByAgent = {};

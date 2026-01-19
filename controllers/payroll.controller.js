@@ -203,7 +203,7 @@ exports.generate = async (req, res) => {
 // Obtenir tous les bulletins de paie
 exports.findAll = async (req, res) => {
   try {
-    const { agentId, month, year, paid, periodStart, periodEnd, page = 1, limit = 20 } = req.query;
+    const { agentId, month, year, paid, periodStart, periodEnd, siteId, bankId, page = 1, limit = 20 } = req.query;
     
     const query = {};
     if (agentId) query.agentId = agentId;
@@ -221,6 +221,100 @@ exports.findAll = async (req, res) => {
         query.periodEnd = { $lte: end };
       } else {
         query.periodEnd = { $lte: end };
+      }
+    }
+
+    // Filtre par banque : trouver les agents avec cette banque
+    let agentIdsFilter = null;
+    if (bankId) {
+      const agentsInBank = await Agent.find({
+        'bankAccount.bankId': bankId
+      }).select('_id');
+      agentIdsFilter = agentsInBank.map(a => a._id);
+      if (agentIdsFilter.length === 0) {
+        // Aucun agent avec cette banque, retourner vide
+        return res.json({
+          payrolls: [],
+          pagination: {
+            total: 0,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            pages: 0
+          }
+        });
+      }
+      // Combiner avec agentId si fourni
+      if (query.agentId) {
+        if (!agentIdsFilter.includes(query.agentId)) {
+          // L'agent spécifié n'a pas cette banque
+          return res.json({
+            payrolls: [],
+            pagination: {
+              total: 0,
+              page: parseInt(page),
+              limit: parseInt(limit),
+              pages: 0
+            }
+          });
+        }
+      } else {
+        query.agentId = { $in: agentIdsFilter };
+      }
+    }
+
+    // Filtre par site : trouver les agents avec des contrats sur ce site
+    if (siteId) {
+      const contractsWithSite = await WorkContract.find({
+        siteId: siteId,
+        status: 'active'
+      }).select('agentId');
+      
+      const agentIdsWithSite = contractsWithSite.map(c => c.agentId.toString());
+      
+      if (agentIdsWithSite.length === 0) {
+        return res.json({
+          payrolls: [],
+          pagination: {
+            total: 0,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            pages: 0
+          }
+        });
+      }
+      
+      // Combiner avec les filtres existants
+      if (query.agentId) {
+        if (typeof query.agentId === 'object' && query.agentId.$in) {
+          // Intersection des deux filtres
+          query.agentId.$in = query.agentId.$in.filter(id => agentIdsWithSite.includes(id.toString()));
+          if (query.agentId.$in.length === 0) {
+            return res.json({
+              payrolls: [],
+              pagination: {
+                total: 0,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                pages: 0
+              }
+            });
+          }
+        } else {
+          // Vérifier si l'agent spécifié est dans la liste
+          if (!agentIdsWithSite.includes(query.agentId.toString())) {
+            return res.json({
+              payrolls: [],
+              pagination: {
+                total: 0,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                pages: 0
+              }
+            });
+          }
+        }
+      } else {
+        query.agentId = { $in: agentIdsWithSite };
       }
     }
 

@@ -37,14 +37,14 @@ async function generateTransferOrderExcel(order) {
     };
 
     // Titre principal
-    worksheet.mergeCells('A1:H1');
+    worksheet.mergeCells('A1:F1');
     const titleCell = worksheet.getCell('A1');
     titleCell.value = 'LISTE NOMINATIVE DU PERSONNEL - PROPRENET';
     titleCell.font = { bold: true, size: 14, color: { argb: 'FF1e40af' } };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
     // Informations de contexte
-    worksheet.mergeCells('A2:H2');
+    worksheet.mergeCells('A2:F2');
     const contextCell = worksheet.getCell('A2');
     const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 
                        'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -54,16 +54,14 @@ async function generateTransferOrderExcel(order) {
     contextCell.font = { bold: true, size: 10 };
     contextCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    // En-têtes du tableau
+    // En-têtes du tableau (modifiés selon les demandes)
     const headers = [
       'N°',
       'Nom et Prénom',
       'Matricule',
       'Fonction',
-      'Service',
-      'Type de co Banque',
-      'Numéro de Contact',
-      'Signature'
+      'Numéro de compte bancaire',
+      'Montant'
     ];
 
     const headerRow = worksheet.getRow(3);
@@ -78,36 +76,128 @@ async function generateTransferOrderExcel(order) {
     worksheet.getColumn(2).width = 30; // Nom et Prénom
     worksheet.getColumn(3).width = 15; // Matricule
     worksheet.getColumn(4).width = 20; // Fonction
-    worksheet.getColumn(5).width = 15; // Service
-    worksheet.getColumn(6).width = 18; // Type de co Banque
-    worksheet.getColumn(7).width = 18; // Numéro de Contact
-    worksheet.getColumn(8).width = 15; // Signature
+    worksheet.getColumn(5).width = 25; // Numéro de compte bancaire
+    worksheet.getColumn(6).width = 18; // Montant
 
     // Hauteur de la ligne d'en-tête
     headerRow.height = 30;
 
     // Données des employés
+    let totalAmount = 0;
     if (order.employees && order.employees.length > 0) {
-      order.employees.forEach((employee, index) => {
+      // Récupérer les informations complètes des agents et contrats
+      const Agent = require('../models/agent.model');
+      const WorkContract = require('../models/workContract.model');
+      
+      for (let index = 0; index < order.employees.length; index++) {
+        const employee = order.employees[index];
         const row = worksheet.getRow(4 + index);
         const fullName = `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || 'N/A';
+        
+        // Récupérer les informations complètes de l'agent si agentId est disponible
+        let bankAccountNumber = 'N/A';
+        let fonction = employee.fonction || 'N/A';
+        
+        if (employee.agentId) {
+          try {
+            const agentId = typeof employee.agentId === 'string' ? employee.agentId : employee.agentId._id || employee.agentId;
+            const agent = await Agent.findById(agentId)
+              .populate('bankAccount.bankId', 'name code')
+              .populate('userId', 'phone');
+            
+            if (agent) {
+              // Numéro de compte bancaire
+              if (agent.bankAccount && agent.bankAccount.accountNumber) {
+                bankAccountNumber = agent.bankAccount.accountNumber;
+              }
+              
+              // Fonction depuis le contrat actif si disponible
+              if (!employee.fonction || employee.fonction === 'N/A') {
+                const activeContract = await WorkContract.findOne({
+                  agentId: agentId,
+                  status: 'active'
+                }).select('position');
+                
+                if (activeContract && activeContract.position) {
+                  fonction = activeContract.position;
+                }
+              }
+            }
+          } catch (error) {
+            logger.error(`Erreur récupération agent ${employee.agentId}:`, error);
+          }
+        }
+        
+        const amount = employee.amount || 0;
+        totalAmount += amount;
         
         row.getCell(1).value = employee.number || index + 1;
         row.getCell(2).value = fullName;
         row.getCell(3).value = employee.matricule || 'N/A';
-        row.getCell(4).value = employee.fonction || 'N/A';
-        row.getCell(5).value = employee.service || 'N/A';
-        row.getCell(6).value = employee.accountType || 'N/A';
-        row.getCell(7).value = employee.contactNumber || 'N/A';
-        row.getCell(8).value = ''; // Signature vide
+        row.getCell(4).value = fonction;
+        row.getCell(5).value = bankAccountNumber;
+        row.getCell(6).value = amount;
 
         // Appliquer le style à toutes les cellules de la ligne
-        for (let i = 1; i <= 8; i++) {
+        for (let i = 1; i <= 6; i++) {
           row.getCell(i).style = cellStyle;
         }
+        
+        // Style pour la colonne montant (alignement à droite)
+        row.getCell(6).style = {
+          ...cellStyle,
+          alignment: { horizontal: 'right', vertical: 'middle', wrapText: true },
+          numFmt: '#,##0'
+        };
 
         row.height = 20;
-      });
+      }
+      
+      // Ligne de total
+      const totalRow = worksheet.getRow(4 + order.employees.length);
+      totalRow.height = 25;
+      
+      // Style pour la ligne de total
+      const totalStyle = {
+        font: { bold: true, size: 11 },
+        fill: {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF3F4F6' }
+        },
+        alignment: { horizontal: 'right', vertical: 'middle' },
+        border: {
+          top: { style: 'medium' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        },
+        numFmt: '#,##0'
+      };
+      
+      // Cellule "TOTAL"
+      totalRow.getCell(5).value = 'TOTAL';
+      totalRow.getCell(5).style = {
+        ...totalStyle,
+        alignment: { horizontal: 'right', vertical: 'middle' },
+        font: { bold: true, size: 11 }
+      };
+      
+      // Cellule montant total
+      totalRow.getCell(6).value = totalAmount;
+      totalRow.getCell(6).style = totalStyle;
+      
+      // Appliquer le style aux autres cellules de la ligne de total
+      for (let i = 1; i <= 4; i++) {
+        totalRow.getCell(i).style = {
+          ...cellStyle,
+          fill: {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF3F4F6' }
+          }
+        };
+      }
     }
 
     // Générer le buffer Excel

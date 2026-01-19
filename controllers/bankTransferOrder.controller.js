@@ -330,7 +330,20 @@ exports.generatePDF = async (req, res) => {
 exports.generateExcel = async (req, res) => {
   try {
     const order = await BankTransferOrder.findById(req.params.id)
-      .populate('employees.agentId', 'firstName lastName matriculeNumber')
+      .populate({
+        path: 'employees.agentId',
+        select: 'firstName lastName matriculeNumber bankAccount userId',
+        populate: [
+          {
+            path: 'bankAccount.bankId',
+            select: 'name code'
+          },
+          {
+            path: 'userId',
+            select: 'phone'
+          }
+        ]
+      })
       .populate('employees.payrollId');
     
     if (!order) {
