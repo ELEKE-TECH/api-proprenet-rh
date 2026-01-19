@@ -1,9 +1,25 @@
 /**
  * Convertit un nombre en lettres (français)
  * Exemple: 784167 -> "Sept cent quatre vingt quatre mille cent soixante sept"
+ * 
+ * Gère correctement les nombres 70-79 et 90-99 :
+ * - 73 -> "soixante-treize" (pas "soixante-douze")
+ * - 73500 -> "Soixante-treize mille cinq cents"
  */
 function numberToWords(num) {
   if (num === 0) return 'Zéro';
+  
+  // Validation et normalisation
+  if (typeof num !== 'number' || isNaN(num)) {
+    throw new Error(`Nombre invalide: ${num}`);
+  }
+  
+  // S'assurer que le nombre est un entier positif
+  num = Math.floor(Math.abs(num));
+  
+  if (num < 0) {
+    throw new Error(`Le nombre ne peut pas être négatif: ${num}`);
+  }
   
   const ones = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
   const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
@@ -17,13 +33,24 @@ function numberToWords(num) {
       const tensPlace = Math.floor(n / 10);
       const onesPlace = n % 10;
       if (tensPlace === 7 || tensPlace === 9) {
-        // Soixante-dix, quatre-vingt-dix
+        // Soixante-dix (70), quatre-vingt-dix (90)
         const base = tensPlace === 7 ? 'soixante' : 'quatre-vingt';
-        return onesPlace === 0 
-          ? base 
-          : onesPlace === 1 
-            ? `${base}-et-onze`
-            : `${base}-${teens[onesPlace - 1]}`;
+        if (onesPlace === 0) {
+          return base === 'soixante' ? 'soixante-dix' : 'quatre-vingt-dix';
+        }
+        if (onesPlace === 1) {
+          // 71 = soixante-et-onze (avec "et")
+          // 91 = quatre-vingt-onze (sans "et")
+          return tensPlace === 7 ? `${base}-et-onze` : `${base}-onze`;
+        }
+        // Pour 72-79 et 92-99, on utilise teens[onesPlace] directement car :
+        // teens[0] = 'dix', teens[1] = 'onze', teens[2] = 'douze', teens[3] = 'treize', etc.
+        // 72 = soixante-douze (teens[2] = 'douze')
+        // 73 = soixante-treize (teens[3] = 'treize')
+        // 77 = soixante-dix-sept (teens[7] = 'dix-sept')
+        // 92 = quatre-vingt-douze (teens[2] = 'douze')
+        // 97 = quatre-vingt-dix-sept (teens[7] = 'dix-sept')
+        return `${base}-${teens[onesPlace]}`;
       }
       if (onesPlace === 0) {
         return tens[tensPlace] === 'quatre-vingt' ? 'quatre-vingts' : tens[tensPlace];

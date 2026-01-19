@@ -2,6 +2,7 @@ const Payroll = require('../models/payroll.model');
 const Agent = require('../models/agent.model');
 const Advance = require('../models/advance.model');
 const WorkContract = require('../models/workContract.model');
+const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 const payslipPdfService = require('../services/payslipPdf.service');
 
@@ -202,22 +203,174 @@ exports.generate = async (req, res) => {
 // Obtenir tous les bulletins de paie
 exports.findAll = async (req, res) => {
   try {
-    const { agentId, month, year, paid, page = 1, limit = 20 } = req.query;
+    const { agentId, month, year, paid, periodStart, periodEnd, page = 1, limit = 20 } = req.query;
     
     const query = {};
     if (agentId) query.agentId = agentId;
     if (month) query.month = parseInt(month);
     if (year) query.year = parseInt(year);
     if (paid !== undefined) query.paid = paid === 'true';
+    if (periodStart) {
+      const start = new Date(periodStart);
+      query.periodStart = { $gte: start };
+    }
+    if (periodEnd) {
+      const end = new Date(periodEnd);
+      end.setHours(23, 59, 59, 999);
+      if (query.periodStart) {
+        query.periodEnd = { $lte: end };
+      } else {
+        query.periodEnd = { $lte: end };
+      }
+    }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
+    // Populate plus complet si on recherche par période (pour les ordres de virement)
+    let payrolls;
+    if (periodStart && periodEnd) {
+      // Pour les ordres de virement, on doit populate bankAccount.bankId
+      // Comme bankAccount est un sous-document, on utilise une approche différente
+      payrolls = await Payroll.find(query)
+        .populate({
+          path: 'agentId',
+          select: 'firstName lastName matriculeNumber bankAccount userId',
+          populate: {
+            path: 'userId',
+            select: 'phone email',
+            model: 'User'
+          }
+        })
+        .populate('workContractId', 'position contractType')
+        .sort({ periodEnd: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit));
+      
+      // Populate manuellement bankAccount.bankId pour chaque agent
+      // car Mongoose ne peut pas populate directement un sous-document
+      const Bank = require('../models/bank.model');
+      for (const payroll of payrolls) {
+        if (payroll.agentId && payroll.agentId.bankAccount && payroll.agentId.bankAccount.bankId) {
+          try {
+            const bank = await Bank.findById(payroll.agentId.bankAccount.bankId);
+            if (bank) {
+              payroll.agentId.bankAccount.bankId = bank;
+            }
+          } catch (error) {
+            logger.error('Erreur populate bank:', error);
+          }
+        }
+      }
+    } else {
+      // Populate simple pour les autres cas
+      payrolls = await Payroll.find(query)
+        .populate('agentId', 'firstName lastName')
+        .populate('workContractId', 'position contractType')
+        .sort({ periodEnd: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit));
+    }
+
+    const total = await Payroll.countDocuments(query);
+
+    // Debug: logger les premiers bulletins pour vérifier le populate
+    if (periodStart && periodEnd && payrolls.length > 0) {
+      logger.info(`Payrolls trouvés: ${payrolls.length}, premier agent:`, {
+        agentId: payrolls[0].agentId?._id,
+        agentName: payrolls[0].agentId ? `${payrolls[0].agentId.firstName} ${payrolls[0].agentId.lastName}` : 'N/A',
+        bankAccount: payrolls[0].agentId?.bankAccount
+      });
+    }
+
+    res.json({
+      payrolls,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    logger.error('Erreur récupération bulletins:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Obtenir les bulletins de paie pour les agents d'une banque spécifique
+exports.findByBank = async (req, res) => {
+  try {
+    const { bankId } = req.params;
+    const { periodStart, periodEnd, page = 1, limit = 1000 } = req.query;
+
+    if (!bankId) {
+      return res.status(400).json({ message: 'ID de la banque requis' });
+    }
+
+    if (!periodStart || !periodEnd) {
+      return res.status(400).json({ message: 'Date de début et date de fin requises' });
+    }
+
+    const start = new Date(periodStart);
+    const end = new Date(periodEnd);
+    end.setHours(23, 59, 59, 999);
+
+    // 1. Récupérer tous les agents qui ont un compte dans cette banque
+    const agents = await Agent.find({
+      'bankAccount.bankId': new mongoose.Types.ObjectId(bankId)
+    }).select('_id');
+
+    if (agents.length === 0) {
+      return res.json({
+        payrolls: [],
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: 0,
+          pages: 0
+        }
+      });
+    }
+
+    const agentIds = agents.map(agent => agent._id);
+
+    // 2. Récupérer les bulletins de paie pour ces agents et cette période
+    const query = {
+      agentId: { $in: agentIds },
+      periodStart: { $gte: start, $lte: end }
+    };
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
     const payrolls = await Payroll.find(query)
-      .populate('agentId', 'firstName lastName')
+      .populate({
+        path: 'agentId',
+        select: 'firstName lastName matriculeNumber bankAccount userId',
+        populate: {
+          path: 'userId',
+          select: 'phone email',
+          model: 'User'
+        }
+      })
       .populate('workContractId', 'position contractType')
-      .sort({ periodEnd: -1, createdAt: -1 })
+      .sort({ 'agentId.lastName': 1, 'agentId.firstName': 1 })
       .skip(skip)
       .limit(parseInt(limit));
+
+    // Populate manuellement bankAccount.bankId
+    const Bank = require('../models/bank.model');
+    for (const payroll of payrolls) {
+      if (payroll.agentId && payroll.agentId.bankAccount && payroll.agentId.bankAccount.bankId) {
+        try {
+          const bank = await Bank.findById(payroll.agentId.bankAccount.bankId);
+          if (bank) {
+            payroll.agentId.bankAccount.bankId = bank;
+          }
+        } catch (error) {
+          logger.error('Erreur populate bank:', error);
+        }
+      }
+    }
 
     const total = await Payroll.countDocuments(query);
 
@@ -231,7 +384,7 @@ exports.findAll = async (req, res) => {
       }
     });
   } catch (error) {
-    logger.error('Erreur récupération bulletins:', error);
+    logger.error('Erreur récupération bulletins par banque:', error);
     res.status(500).json({ message: error.message });
   }
 };

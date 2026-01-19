@@ -1,6 +1,8 @@
 const Payroll = require('../models/payroll.model');
 const Bank = require('../models/bank.model');
-const { generateTransferOrderPDF } = require('../services/bankTransferOrderPdf.service');
+const BankTransferOrder = require('../models/bankTransferOrder.model');
+const { generateTransferOrderPDF, generateTransferOrderPDFFromModel } = require('../services/bankTransferOrderPdf.service');
+const { generateTransferOrderExcel } = require('../services/bankTransferOrderExcel.service');
 const logger = require('../utils/logger');
 
 /**
@@ -146,6 +148,204 @@ exports.getSummaryByBank = async (req, res) => {
 
   } catch (error) {
     logger.error('Erreur récupération résumé par banque:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Créer un ordre de virement
+exports.create = async (req, res) => {
+  try {
+    const orderData = { ...req.body };
+    orderData.createdBy = req.userId;
+    
+    const order = new BankTransferOrder(orderData);
+    await order.save();
+    
+    await order.populate('createdBy', 'email');
+    await order.populate('employees.agentId', 'firstName lastName matriculeNumber');
+    await order.populate('employees.payrollId');
+    
+    res.status(201).json({
+      message: 'Ordre de virement créé avec succès',
+      order
+    });
+  } catch (error) {
+    logger.error('Erreur création ordre de virement:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Obtenir tous les ordres de virement avec pagination
+exports.findAll = async (req, res) => {
+  try {
+    const {
+      month,
+      year,
+      page = 1,
+      limit = 10
+    } = req.query;
+    
+    const query = {};
+    
+    if (month) query['period.month'] = parseInt(month);
+    if (year) query['period.year'] = parseInt(year);
+    
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const orders = await BankTransferOrder.find(query)
+      .populate('createdBy', 'email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    const total = await BankTransferOrder.countDocuments(query);
+    
+    res.json({
+      orders,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    logger.error('Erreur récupération ordres de virement:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Obtenir un ordre de virement par ID
+exports.findOne = async (req, res) => {
+  try {
+    const order = await BankTransferOrder.findById(req.params.id)
+      .populate('createdBy', 'email')
+      .populate('employees.agentId', 'firstName lastName matriculeNumber')
+      .populate('employees.payrollId');
+    
+    if (!order) {
+      return res.status(404).json({ message: 'Ordre de virement non trouvé' });
+    }
+
+    res.json(order);
+  } catch (error) {
+    logger.error('Erreur récupération ordre de virement:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Mettre à jour un ordre de virement
+exports.update = async (req, res) => {
+  try {
+    const order = await BankTransferOrder.findById(req.params.id);
+    
+    if (!order) {
+      return res.status(404).json({ message: 'Ordre de virement non trouvé' });
+    }
+
+    Object.assign(order, req.body);
+    await order.save();
+    
+    await order.populate('createdBy', 'email');
+    await order.populate('employees.agentId', 'firstName lastName matriculeNumber');
+    await order.populate('employees.payrollId');
+    
+    res.json({
+      message: 'Ordre de virement mis à jour avec succès',
+      order
+    });
+  } catch (error) {
+    logger.error('Erreur mise à jour ordre de virement:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Supprimer un ordre de virement
+exports.delete = async (req, res) => {
+  try {
+    const order = await BankTransferOrder.findById(req.params.id);
+    
+    if (!order) {
+      return res.status(404).json({ message: 'Ordre de virement non trouvé' });
+    }
+
+    await order.deleteOne();
+    
+    res.json({ message: 'Ordre de virement supprimé avec succès' });
+  } catch (error) {
+    logger.error('Erreur suppression ordre de virement:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Générer le PDF d'un ordre de virement sauvegardé
+exports.generatePDF = async (req, res) => {
+  try {
+    const order = await BankTransferOrder.findById(req.params.id)
+      .populate('employees.agentId', 'firstName lastName matriculeNumber')
+      .populate('employees.payrollId');
+    
+    if (!order) {
+      return res.status(404).json({ message: 'Ordre de virement non trouvé' });
+    }
+
+    // Régénérer le montant en lettres pour s'assurer qu'il est correct
+    // (au cas où l'ordre aurait été créé avec une ancienne version)
+    const { numberToWords } = require('../utils/numberToWords');
+    try {
+      const roundedAmount = Math.floor(order.totalAmount || 0);
+      const recalculatedAmountInWords = numberToWords(roundedAmount);
+      
+      // Si la valeur stockée est incorrecte, la mettre à jour
+      if (order.totalAmountInWords !== recalculatedAmountInWords) {
+        logger.warn(`Correction du montant en lettres pour l'ordre ${order.orderNumber}: "${order.totalAmountInWords}" -> "${recalculatedAmountInWords}"`);
+        order.totalAmountInWords = recalculatedAmountInWords;
+        // Optionnel: sauvegarder la correction (décommenter si nécessaire)
+        // await order.save();
+      }
+    } catch (error) {
+      logger.error('Erreur régénération montant en lettres:', error);
+    }
+
+    const isDownload = req.query.download === 'true' || !req.query.view;
+    
+    // Utiliser le service dédié pour générer le PDF
+    const pdfBuffer = await generateTransferOrderPDFFromModel(order);
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 
+      isDownload 
+        ? `attachment; filename=ordre-virement-${order.orderNumber}.pdf`
+        : `inline; filename=ordre-virement-${order.orderNumber}.pdf`
+    );
+    
+    res.send(pdfBuffer);
+  } catch (error) {
+    logger.error('Erreur génération PDF ordre de virement:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Générer le fichier Excel de la liste nominative
+exports.generateExcel = async (req, res) => {
+  try {
+    const order = await BankTransferOrder.findById(req.params.id)
+      .populate('employees.agentId', 'firstName lastName matriculeNumber')
+      .populate('employees.payrollId');
+    
+    if (!order) {
+      return res.status(404).json({ message: 'Ordre de virement non trouvé' });
+    }
+
+    // Générer le fichier Excel
+    const excelBuffer = await generateTransferOrderExcel(order);
+    
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=liste-nominative-${order.orderNumber}.xlsx`);
+    
+    res.send(excelBuffer);
+  } catch (error) {
+    logger.error('Erreur génération Excel liste nominative:', error);
     res.status(500).json({ message: error.message });
   }
 };

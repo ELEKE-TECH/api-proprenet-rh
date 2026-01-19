@@ -1,5 +1,6 @@
 const PDFDocument = require('pdfkit');
 const { addProfessionalHeaderWithLogo, formatCurrency, formatDate } = require('../utils/pdfHelper');
+const { numberToWords } = require('../utils/numberToWords');
 const logger = require('../utils/logger');
 
 /**
@@ -238,7 +239,218 @@ async function generateTransferOrderPDF(bank, payrolls, transferDate) {
   });
 }
 
+/**
+ * Génère le PDF d'un ordre de virement à partir du modèle sauvegardé
+ * Format selon le template fourni par l'utilisateur
+ */
+async function generateTransferOrderPDFFromModel(order) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 50, bottom: 50, left: 50, right: 50 }
+      });
+
+      const buffers = [];
+      doc.on('data', buffers.push.bind(buffers));
+      doc.on('end', () => {
+        const pdfData = Buffer.concat(buffers);
+        resolve(pdfData);
+      });
+      doc.on('error', reject);
+
+      const pageWidth = doc.page.width;
+      const margin = 50;
+      const contentWidth = pageWidth - 2 * margin;
+
+      // Header professionnel
+      const contactInfo = {
+        phone: 'Contacts : (+235) 62 23 26 17/62 23 26 47 | Sis Avenue Mgr.MATHIAS NGARTERI MAYADI, 7ème Arrondissement/B.P:1743 NDJ-Tchad.',
+        address: null
+      };
+
+      let currentY = addProfessionalHeaderWithLogo(
+        doc,
+        pageWidth,
+        margin,
+        'ORDRE DE VIREMENT',
+        contactInfo
+      );
+
+      currentY += 20;
+
+      // Destinataire
+      doc.fontSize(11)
+         .font('Helvetica')
+         .text('À', margin, currentY);
+      
+      currentY += 20;
+      
+      doc.font('Helvetica-Bold')
+         .fontSize(12)
+         .text(order.bank || 'CORIS BANK INTERNATIONAL', margin, currentY);
+
+      currentY += 30;
+
+      // Objet
+      const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 
+                         'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+      const monthName = monthNames[order.period.month - 1] || '';
+      const periodText = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${order.period.year}`;
+      
+      doc.font('Helvetica-Bold')
+         .fontSize(11)
+         .text('Objet : Ordre de virement des salaires du personnel PROPRENET – Mois de ' + periodText, margin, currentY, {
+           width: contentWidth
+         });
+
+      currentY += 30;
+
+      // Salutation
+      doc.font('Helvetica')
+         .fontSize(11)
+         .fillColor('#000000')
+         .text('Madame, Monsieur,', margin, currentY);
+
+      currentY += 20;
+
+      // Corps de la lettre
+      const bodyText = 'Par la présente, nous vous prions de bien vouloir procéder au virement des salaires du personnel de l\'entreprise PROPRENET, au titre du mois de ' + periodText + ', conformément aux informations ci-dessous et aux listings joints.';
+      
+      const bodyTextHeight = doc.heightOfString(bodyText, {
+        width: contentWidth,
+        align: 'left',
+        lineGap: 5
+      });
+      
+      doc.text(bodyText, margin, currentY, {
+        width: contentWidth,
+        align: 'left',
+        lineGap: 5
+      });
+
+      currentY += bodyTextHeight + 20;
+
+      // Donneur d'ordre
+      doc.font('Helvetica-Bold')
+         .fontSize(11)
+         .text('Donneur d\'ordre :', margin, currentY);
+      
+      currentY += 20;
+      
+      doc.font('Helvetica')
+         .fontSize(11);
+      
+      doc.text(`Entreprise : ${order.orderer.company || 'PROPRENET'}`, margin, currentY);
+      currentY += 20;
+      
+      doc.text(`Compte N° : ${order.orderer.accountNumber || 'N/A'}`, margin, currentY);
+      currentY += 20;
+      
+      doc.text(`Banque : ${order.orderer.bank || 'CORIS BANK INTERNATIONAL'}`, margin, currentY);
+      currentY += 20;
+      
+      if (order.orderer.agency) {
+        doc.text(`Agence : ${order.orderer.agency}`, margin, currentY);
+        currentY += 20;
+      }
+
+      // Bénéficiaires
+      doc.font('Helvetica-Bold')
+         .fontSize(11)
+         .text('Bénéficiaires :', margin, currentY);
+      
+      currentY += 20;
+      
+      doc.font('Helvetica')
+         .fontSize(11)
+         .text('Salariés PROPRENET (voir liste nominative jointe)', margin, currentY);
+      
+      currentY += 20;
+
+      // Montant total
+      doc.font('Helvetica-Bold')
+         .fontSize(11)
+         .text('Montant total à virer :', margin, currentY);
+      
+      currentY += 20;
+      
+      doc.font('Helvetica')
+         .fontSize(11)
+         .text(`${formatCurrency(order.totalAmount || 0)}`, margin, currentY);
+      
+      currentY += 20;
+      
+      // Toujours régénérer le montant en lettres pour s'assurer qu'il est correct
+      // (au cas où l'ordre aurait été créé avec une ancienne version de la fonction)
+      let amountInWords;
+      try {
+        const roundedAmount = Math.floor(order.totalAmount || 0);
+        amountInWords = numberToWords(roundedAmount);
+        
+        // Si la valeur stockée est différente, logger un avertissement
+        if (order.totalAmountInWords && order.totalAmountInWords !== amountInWords) {
+          logger.warn(`Montant en lettres incorrect détecté pour l'ordre ${order.orderNumber}: stocké="${order.totalAmountInWords}", recalculé="${amountInWords}"`);
+        }
+      } catch (error) {
+        logger.error('Erreur génération montant en lettres dans PDF:', error);
+        // Fallback sur la valeur stockée si disponible
+        amountInWords = order.totalAmountInWords || 'Erreur de conversion';
+      }
+      doc.text(`(${amountInWords} francs CFA)`, margin, currentY);
+      
+      currentY += 20;
+
+      // Date d'exécution souhaitée
+      doc.font('Helvetica-Bold')
+         .fontSize(11)
+         .text('Date d\'exécution souhaitée :', margin, currentY);
+      
+      currentY += 20;
+      
+      doc.font('Helvetica')
+         .fontSize(11)
+         .text(formatDate(order.executionDate), margin, currentY);
+      
+      currentY += 20;
+
+      // Salutations
+      const thanksText = 'Nous vous remercions de bien vouloir exécuter cette opération dans les meilleurs délais et restons à votre disposition pour toute information complémentaire.';
+      const thanksTextHeight = doc.heightOfString(thanksText, {
+        width: contentWidth,
+        align: 'left',
+        lineGap: 5
+      });
+      
+      doc.font('Helvetica')
+         .fontSize(11)
+         .text(thanksText, margin, currentY, {
+           width: contentWidth,
+           align: 'left',
+           lineGap: 5
+         });
+
+      currentY += thanksTextHeight + 20;
+
+      doc.text('Veuillez agréer, Monsieur, l\'expression de nos salutations distinguées.', margin, currentY);
+
+      currentY += 40;
+
+      // Date et lieu
+      const location = order.location || 'N\'Djamena';
+      const formattedDate = formatDate(order.createdAt || new Date());
+      doc.text(`Fait à ${location}, le ${formattedDate}`, margin, currentY);
+
+      doc.end();
+    } catch (error) {
+      logger.error('Erreur génération PDF ordre de virement:', error);
+      reject(error);
+    }
+  });
+}
+
 module.exports = {
-  generateTransferOrderPDF
+  generateTransferOrderPDF,
+  generateTransferOrderPDFFromModel
 };
 
