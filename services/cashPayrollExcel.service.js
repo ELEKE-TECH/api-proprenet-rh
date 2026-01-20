@@ -53,28 +53,39 @@ async function generateCashPayrollExcel(payrolls, periodStart, periodEnd, siteNa
     };
 
     // Titre principal
-    worksheet.mergeCells('A1:E1');
+    worksheet.mergeCells('A1:F1');
     const titleCell = worksheet.getCell('A1');
     titleCell.value = 'LISTE DES EMPLOYÉS PAYÉS EN BILLETAGE - PROPRENET';
     titleCell.font = { bold: true, size: 14, color: { argb: 'FF1e40af' } };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    // Informations de contexte
-    worksheet.mergeCells('A2:E2');
+    // Informations de contexte - Période
+    worksheet.mergeCells('A2:F2');
     const contextCell = worksheet.getCell('A2');
     const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 
                        'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
     const startDate = new Date(periodStart);
+    const endDate = new Date(periodEnd);
     const monthName = monthNames[startDate.getMonth()] || '';
     const periodText = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${startDate.getFullYear()}`;
     
-    let contextText = `Période : ${periodText}`;
-    if (siteName) {
-      contextText += ` | Site : ${siteName}`;
-    }
+    let contextText = `Période : ${periodText} (Du ${startDate.toLocaleDateString('fr-FR')} au ${endDate.toLocaleDateString('fr-FR')})`;
     contextCell.value = contextText;
     contextCell.font = { bold: true, size: 10 };
     contextCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    
+    // Paramètres de filtrage
+    worksheet.mergeCells('A3:F3');
+    const filterCell = worksheet.getCell('A3');
+    let filterText = 'Paramètres de filtrage : Type de paiement = Billetage';
+    if (siteName) {
+      filterText += ` | Site = ${siteName}`;
+    } else {
+      filterText += ' | Site = Tous les sites';
+    }
+    filterCell.value = filterText;
+    filterCell.font = { bold: false, size: 9, color: { argb: 'FF666666' } };
+    filterCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
     // En-têtes du tableau (mêmes colonnes que l'ordre de virement, sauf le numéro de compte bancaire)
     const headers = [
@@ -82,10 +93,11 @@ async function generateCashPayrollExcel(payrolls, periodStart, periodEnd, siteNa
       'Nom et Prénom',
       'Matricule',
       'Fonction',
+      'Contact',
       'Montant'
     ];
 
-    const headerRow = worksheet.getRow(3);
+    const headerRow = worksheet.getRow(4);
     headers.forEach((header, index) => {
       const cell = headerRow.getCell(index + 1);
       cell.value = header;
@@ -97,7 +109,8 @@ async function generateCashPayrollExcel(payrolls, periodStart, periodEnd, siteNa
     worksheet.getColumn(2).width = 30; // Nom et Prénom
     worksheet.getColumn(3).width = 15; // Matricule
     worksheet.getColumn(4).width = 20; // Fonction
-    worksheet.getColumn(5).width = 18; // Montant
+    worksheet.getColumn(5).width = 25; // Contact
+    worksheet.getColumn(6).width = 18; // Montant
 
     // Hauteur de la ligne d'en-tête
     headerRow.height = 30;
@@ -105,7 +118,7 @@ async function generateCashPayrollExcel(payrolls, periodStart, periodEnd, siteNa
     // Données des employés
     let totalAmount = 0;
     payrolls.forEach((payroll, index) => {
-      const row = worksheet.getRow(4 + index);
+      const row = worksheet.getRow(5 + index);
       const agent = payroll.agentId || {};
       const contract = payroll.workContractId || {};
       const fullName = `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || 'N/A';
@@ -113,6 +126,17 @@ async function generateCashPayrollExcel(payrolls, periodStart, periodEnd, siteNa
       const fonction = contract.position || 'N/A';
       const netAmount = payroll.netAmount || 0;
       totalAmount += netAmount;
+
+      // Récupérer le contact (email ou téléphone)
+      let contact = 'N/A';
+      if (agent.userId) {
+        const user = agent.userId;
+        if (user.phone) {
+          contact = user.phone;
+        } else if (user.email) {
+          contact = user.email;
+        }
+      }
 
       row.getCell(1).value = index + 1;
       row.getCell(1).style = { ...cellStyle, alignment: { horizontal: 'center', vertical: 'middle' } };
@@ -126,12 +150,15 @@ async function generateCashPayrollExcel(payrolls, periodStart, periodEnd, siteNa
       row.getCell(4).value = fonction;
       row.getCell(4).style = cellStyle;
       
-      row.getCell(5).value = netAmount;
-      row.getCell(5).style = { ...cellStyle, alignment: { horizontal: 'right', vertical: 'middle' }, numFmt: '#,##0' };
+      row.getCell(5).value = contact;
+      row.getCell(5).style = cellStyle;
+      
+      row.getCell(6).value = netAmount;
+      row.getCell(6).style = { ...cellStyle, alignment: { horizontal: 'right', vertical: 'middle' }, numFmt: '#,##0' };
     });
 
     // Ligne de total
-    const totalRowIndex = 4 + payrolls.length;
+    const totalRowIndex = 5 + payrolls.length;
     const totalRow = worksheet.getRow(totalRowIndex);
     
     totalRow.getCell(1).value = '';
@@ -143,11 +170,14 @@ async function generateCashPayrollExcel(payrolls, periodStart, periodEnd, siteNa
     totalRow.getCell(3).value = '';
     totalRow.getCell(3).style = totalStyle;
     
-    totalRow.getCell(4).value = 'TOTAL';
-    totalRow.getCell(4).style = { ...totalStyle, alignment: { horizontal: 'right', vertical: 'middle' } };
+    totalRow.getCell(4).value = '';
+    totalRow.getCell(4).style = totalStyle;
     
-    totalRow.getCell(5).value = totalAmount;
-    totalRow.getCell(5).style = { ...totalStyle, numFmt: '#,##0' };
+    totalRow.getCell(5).value = 'TOTAL';
+    totalRow.getCell(5).style = { ...totalStyle, alignment: { horizontal: 'right', vertical: 'middle' } };
+    
+    totalRow.getCell(6).value = totalAmount;
+    totalRow.getCell(6).style = { ...totalStyle, numFmt: '#,##0' };
 
     // Générer le buffer
     const buffer = await workbook.xlsx.writeBuffer();

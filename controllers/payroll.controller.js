@@ -782,7 +782,11 @@ exports.generateCashPayrollState = async (req, res) => {
     const payrolls = await Payroll.find(query)
       .populate({
         path: 'agentId',
-        select: 'firstName lastName matriculeNumber'
+        select: 'firstName lastName matriculeNumber userId',
+        populate: {
+          path: 'userId',
+          select: 'email phone'
+        }
       })
       .populate({
         path: 'workContractId',
@@ -799,12 +803,21 @@ exports.generateCashPayrollState = async (req, res) => {
       return res.status(404).json({ message: 'Aucun bulletin de paie trouvé pour cette période.' });
     }
 
+    // Récupérer le nom du site si siteId est fourni
+    let siteName = null;
+    if (siteId) {
+      const site = await Site.findById(siteId).select('name').lean();
+      if (site && site.name) {
+        siteName = site.name;
+      }
+    }
+
     // Générer le PDF
-    const pdfBuffer = await generateCashPayrollPDF(payrolls, start, end);
+    const pdfBuffer = await generateCashPayrollPDF(payrolls, start, end, siteName);
 
     res.setHeader('Content-Type', 'application/pdf');
-    const siteName = siteId ? 'site' : 'tous';
-    res.setHeader('Content-Disposition', `attachment; filename=etat-billetage-${siteName}-${periodStart}-${periodEnd}.pdf`);
+    const siteNameForFile = siteName || 'tous';
+    res.setHeader('Content-Disposition', `attachment; filename=etat-billetage-${siteNameForFile}-${periodStart}-${periodEnd}.pdf`);
     
     res.send(pdfBuffer);
   } catch (error) {
@@ -869,7 +882,11 @@ exports.exportCashPayrollsExcel = async (req, res) => {
     const payrolls = await Payroll.find(query)
       .populate({
         path: 'agentId',
-        select: 'firstName lastName matriculeNumber'
+        select: 'firstName lastName matriculeNumber userId',
+        populate: {
+          path: 'userId',
+          select: 'email phone'
+        }
       })
       .populate({
         path: 'workContractId',

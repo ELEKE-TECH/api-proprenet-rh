@@ -113,6 +113,7 @@ exports.findAll = async (req, res) => {
       search,
       siteId,
       bankId,
+      paymentMethod,
       page = 1,
       limit = 10
     } = req.query;
@@ -121,6 +122,10 @@ exports.findAll = async (req, res) => {
 
     if (status) {
       query.status = status;
+    }
+
+    if (paymentMethod) {
+      query.paymentMethod = paymentMethod;
     }
 
     if (skills) {

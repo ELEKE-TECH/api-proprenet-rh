@@ -11,7 +11,7 @@ function addProfessionalHeaderWithLogo(doc, pageWidth, margin, title, contactInf
   const contentWidth = pageWidth - (margin * 2);
   const headerStartY = margin;
   const logoSize = 60;
-  const headerHeight = 130;
+  const headerHeight = 115;
   
   // Fond du header avec bande colorée en haut
   doc.rect(margin, headerStartY, contentWidth, 4)
@@ -83,10 +83,10 @@ function addProfessionalHeaderWithLogo(doc, pageWidth, margin, title, contactInf
      });
 
   // Titre principal centré (sous la ligne de contacts)
-  const titleY = contactY + 14;
+  const titleY = contactY + 12;
   
   // Ombre pour le titre
-  doc.fontSize(24)
+  doc.fontSize(16)
      .font('Helvetica-Bold')
      .fillColor('#e5e7eb')
      .text(title, margin + 1, titleY + 1, {
@@ -102,7 +102,7 @@ function addProfessionalHeaderWithLogo(doc, pageWidth, margin, title, contactInf
      });
 
   // Ligne décorative sous le titre
-  const headerTitleLineY = titleY + 22;
+  const headerTitleLineY = titleY + 16;
   doc.moveTo(margin, headerTitleLineY)
      .lineTo(margin + contentWidth, headerTitleLineY)
      .strokeColor('#1e40af')
