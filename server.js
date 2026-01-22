@@ -29,6 +29,7 @@ const badgeRoutes = require('./routes/badge.routes');
 const bankRoutes = require('./routes/bank.routes');
 const bankTransferOrderRoutes = require('./routes/bankTransferOrder.routes');
 const invoiceRoutes = require('./routes/invoice.routes');
+const sursalaireRoutes = require('./routes/sursalaire.routes');
 
 const app = express();
 
@@ -85,6 +86,7 @@ app.use('/api/badges', badgeRoutes);
 app.use('/api/banks', bankRoutes);
 app.use('/api/bank-transfer-orders', bankTransferOrderRoutes);
 app.use('/api/invoices', invoiceRoutes);
+app.use('/api/sursalaires', sursalaireRoutes);
 
 // Gestion des erreurs
 app.use(errorHandler);
