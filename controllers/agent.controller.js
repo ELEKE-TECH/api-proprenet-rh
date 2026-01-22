@@ -183,7 +183,7 @@ exports.findAll = async (req, res) => {
       .populate('bankAccount.bankId', 'name code')
       .skip(skip)
       .limit(parseInt(limit))
-      .sort({ createdAt: -1 });
+      .sort({ lastName: 1, firstName: 1 });
 
     // Filtre par site (via les contrats actifs)
     if (siteId) {

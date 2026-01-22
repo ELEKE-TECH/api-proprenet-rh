@@ -117,7 +117,19 @@ async function generateCashPayrollExcel(payrolls, periodStart, periodEnd, siteNa
 
     // Données des employés
     let totalAmount = 0;
-    payrolls.forEach((payroll, index) => {
+    // Trier les payrolls par ordre alphabétique (nom, puis prénom)
+    const sortedPayrolls = [...payrolls].sort((a, b) => {
+      const lastNameA = a.agentId?.lastName || '';
+      const lastNameB = b.agentId?.lastName || '';
+      if (lastNameA !== lastNameB) {
+        return lastNameA.localeCompare(lastNameB, 'fr', { sensitivity: 'base' });
+      }
+      const firstNameA = a.agentId?.firstName || '';
+      const firstNameB = b.agentId?.firstName || '';
+      return firstNameA.localeCompare(firstNameB, 'fr', { sensitivity: 'base' });
+    });
+
+    sortedPayrolls.forEach((payroll, index) => {
       const row = worksheet.getRow(5 + index);
       const agent = payroll.agentId || {};
       const contract = payroll.workContractId || {};

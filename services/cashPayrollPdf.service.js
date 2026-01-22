@@ -139,7 +139,19 @@ async function generateCashPayrollPDF(payrolls, periodStart, periodEnd, siteName
 
       // Lignes du tableau
       let totalAmount = 0;
-      payrolls.forEach((payroll, index) => {
+      // Trier les payrolls par ordre alphabétique (nom, puis prénom)
+      const sortedPayrolls = [...payrolls].sort((a, b) => {
+        const lastNameA = a.agentId?.lastName || '';
+        const lastNameB = b.agentId?.lastName || '';
+        if (lastNameA !== lastNameB) {
+          return lastNameA.localeCompare(lastNameB, 'fr', { sensitivity: 'base' });
+        }
+        const firstNameA = a.agentId?.firstName || '';
+        const firstNameB = b.agentId?.firstName || '';
+        return firstNameA.localeCompare(firstNameB, 'fr', { sensitivity: 'base' });
+      });
+
+      sortedPayrolls.forEach((payroll, index) => {
         // Vérifier si on doit créer une nouvelle page (avec marge pour le total et autres éléments)
         if (currentY + rowHeight + 80 > doc.page.height - 50) {
           doc.addPage();

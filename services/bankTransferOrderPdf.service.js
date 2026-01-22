@@ -140,12 +140,24 @@ async function generateTransferOrderPDF(bank, payrolls, transferDate) {
 
         currentY += 10;
 
+        // Trier les payrolls par ordre alphabétique (nom, puis prénom)
+        const sortedPayrolls = [...payrolls].sort((a, b) => {
+          const nameA = a.agentId?.lastName || '';
+          const nameB = b.agentId?.lastName || '';
+          if (nameA !== nameB) {
+            return nameA.localeCompare(nameB, 'fr', { sensitivity: 'base' });
+          }
+          const firstNameA = a.agentId?.firstName || '';
+          const firstNameB = b.agentId?.firstName || '';
+          return firstNameA.localeCompare(firstNameB, 'fr', { sensitivity: 'base' });
+        });
+
         // Lignes des employés
         doc.font('Helvetica')
            .fontSize(9)
            .fillColor('#000000');
 
-        payrolls.forEach((payroll, index) => {
+        sortedPayrolls.forEach((payroll, index) => {
           const agent = payroll.agentId;
           const fullName = agent ? `${agent.lastName || ''} ${agent.firstName || ''}`.trim() : 'N/A';
           const accountNumber = agent?.bankAccount?.accountNumber || 'N/A';
@@ -173,7 +185,7 @@ async function generateTransferOrderPDF(bank, payrolls, transferDate) {
           currentY += 15;
 
           // Ligne séparatrice légère (sauf pour la dernière ligne)
-          if (index < payrolls.length - 1) {
+          if (index < sortedPayrolls.length - 1) {
             doc.moveTo(margin, currentY - 5)
                .lineTo(pageWidth - margin, currentY - 5)
                .strokeColor('#e5e7eb')
@@ -432,14 +444,23 @@ async function generateTransferOrderPDFFromModel(order) {
 
       currentY += thanksTextHeight + 20;
 
-      doc.text('Veuillez agréer, Monsieur, l\'expression de nos salutations distinguées.', margin, currentY);
+      doc.text('Veuillez agréer, Madame, Monsieur, l\'expression de nos salutations distinguées.', margin, currentY);
 
       currentY += 40;
 
-      // Date et lieu
+      // Date et lieu aligné à droite
       const location = order.location || 'N\'Djamena';
       const formattedDate = formatDate(order.createdAt || new Date());
-      doc.text(`Fait à ${location}, le ${formattedDate}`, margin, currentY);
+      const dateText = `Fait à ${location}, le ${formattedDate}`;
+      const dateTextWidth = doc.widthOfString(dateText);
+      doc.text(dateText, pageWidth - margin - dateTextWidth, currentY);
+
+      currentY += 20;
+
+      // Nom et fonction aligné à droite
+      const signatureText = 'MENODJI PASSEH, Directrice Generale';
+      const signatureTextWidth = doc.widthOfString(signatureText);
+      doc.text(signatureText, pageWidth - margin - signatureTextWidth, currentY);
 
       doc.end();
     } catch (error) {

@@ -87,12 +87,24 @@ async function generateTransferOrderExcel(order) {
     // Données des employés
     let totalAmount = 0;
     if (order.employees && order.employees.length > 0) {
+      // Trier les employés par ordre alphabétique (nom, puis prénom)
+      const sortedEmployees = [...order.employees].sort((a, b) => {
+        const lastNameA = (a.lastName || '').toLowerCase();
+        const lastNameB = (b.lastName || '').toLowerCase();
+        if (lastNameA !== lastNameB) {
+          return lastNameA.localeCompare(lastNameB, 'fr', { sensitivity: 'base' });
+        }
+        const firstNameA = (a.firstName || '').toLowerCase();
+        const firstNameB = (b.firstName || '').toLowerCase();
+        return firstNameA.localeCompare(firstNameB, 'fr', { sensitivity: 'base' });
+      });
+
       // Récupérer les informations complètes des agents et contrats
       const Agent = require('../models/agent.model');
       const WorkContract = require('../models/workContract.model');
       
-      for (let index = 0; index < order.employees.length; index++) {
-        const employee = order.employees[index];
+      for (let index = 0; index < sortedEmployees.length; index++) {
+        const employee = sortedEmployees[index];
         const row = worksheet.getRow(4 + index);
         const fullName = `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || 'N/A';
         
