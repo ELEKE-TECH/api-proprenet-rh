@@ -52,23 +52,43 @@ Script principal qui exécute toutes les migrations dans l'ordre approprié.
 
 ## Utilisation
 
+### Sur le serveur de production
+
+**Important** : Assurez-vous que la variable d'environnement `MONGODB_URI` est correctement configurée dans votre fichier `.env` ou dans les variables d'environnement du serveur.
+
+```bash
+# Vérifier que la variable d'environnement est définie
+echo $MONGODB_URI
+
+# Ou vérifier le fichier .env
+cat .env | grep MONGODB_URI
+```
+
 ### Exécuter toutes les migrations
 
 ```bash
-node backend/scripts/run-all-migrations.js
+cd /home/pnet-rh/htdocs/api.pnet-rh.com/backend
+node scripts/run-all-migrations.js
 ```
 
 ### Exécuter une migration spécifique
 
 ```bash
 # Migration des sites
-node backend/scripts/fix-site-location-geojson.js
+node scripts/fix-site-location-geojson.js
 
 # Migration des matricules
-node backend/scripts/fix-agent-matricules.js
+node scripts/fix-agent-matricules.js
 
 # Migration des numéros de contrat
-node backend/scripts/fix-contract-numbers.js
+node scripts/fix-contract-numbers.js
+```
+
+### En local (développement)
+
+```bash
+# Depuis la racine du projet
+node backend/scripts/run-all-migrations.js
 ```
 
 ## Prérequis
@@ -76,6 +96,25 @@ node backend/scripts/fix-contract-numbers.js
 - Node.js installé
 - MongoDB en cours d'exécution
 - Variables d'environnement configurées (notamment `MONGODB_URI`)
+
+### Configuration de MONGODB_URI
+
+Le format de l'URI MongoDB dépend de votre configuration :
+
+**Local** :
+```
+MONGODB_URI=mongodb://127.0.0.1:27017/proprenet
+```
+
+**Serveur distant** :
+```
+MONGODB_URI=mongodb://username:password@host:port/database
+```
+
+**MongoDB Atlas** :
+```
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/database
+```
 
 ## Notes importantes
 

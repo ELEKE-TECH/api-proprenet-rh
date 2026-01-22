@@ -3,15 +3,39 @@
  * Retire le champ 'address' du sous-objet location pour respecter le format GeoJSON
  */
 
+require('dotenv').config();
 const mongoose = require('mongoose');
 const Site = require('../models/site.model');
 const logger = require('../utils/logger');
-const connectDB = require('../config/db');
+
+async function connectToDatabase() {
+  // Si déjà connecté, ne pas reconnecter
+  if (mongoose.connection.readyState === 1) {
+    logger.info('Connexion MongoDB déjà établie');
+    return;
+  }
+  
+  const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/proprenet';
+  logger.info(`Tentative de connexion à MongoDB: ${uri.replace(/\/\/.*@/, '//***@')}`);
+  
+  try {
+    await mongoose.connect(uri, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 30000, // 30 secondes
+      socketTimeoutMS: 45000,
+    });
+    logger.info('✓ Connexion à MongoDB établie avec succès');
+    return true;
+  } catch (error) {
+    logger.error('✗ Erreur de connexion à MongoDB:', error.message);
+    throw error;
+  }
+}
 
 async function fixSiteLocations() {
   try {
-    await connectDB();
-    logger.info('Connexion à la base de données établie');
+    await connectToDatabase();
 
     // Trouver tous les sites qui ont un champ address dans location
     const sites = await Site.find({
@@ -72,12 +96,19 @@ async function fixSiteLocations() {
       logger.info('Tous les sites ont été corrigés avec succès');
     }
 
+    // Fermer la connexion seulement si exécuté directement
     if (require.main === module) {
+      await mongoose.connection.close();
+      logger.info('Connexion MongoDB fermée');
       process.exit(0);
     }
   } catch (error) {
     logger.error('Erreur lors de la migration:', error);
+    // Fermer la connexion seulement si exécuté directement
     if (require.main === module) {
+      if (mongoose.connection.readyState === 1) {
+        await mongoose.connection.close();
+      }
       process.exit(1);
     }
     throw error;
