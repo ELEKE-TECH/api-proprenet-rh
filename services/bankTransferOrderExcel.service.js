@@ -37,14 +37,14 @@ async function generateTransferOrderExcel(order) {
     };
 
     // Titre principal
-    worksheet.mergeCells('A1:F1');
+    worksheet.mergeCells('A1:G1');
     const titleCell = worksheet.getCell('A1');
     titleCell.value = 'LISTE NOMINATIVE DU PERSONNEL - PROPRENET';
     titleCell.font = { bold: true, size: 14, color: { argb: 'FF1e40af' } };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
     // Informations de contexte
-    worksheet.mergeCells('A2:F2');
+    worksheet.mergeCells('A2:G2');
     const contextCell = worksheet.getCell('A2');
     const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 
                        'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -61,6 +61,7 @@ async function generateTransferOrderExcel(order) {
       'Matricule',
       'Fonction',
       'Numéro de compte bancaire',
+      'Contact téléphonique',
       'Montant'
     ];
 
@@ -77,7 +78,8 @@ async function generateTransferOrderExcel(order) {
     worksheet.getColumn(3).width = 15; // Matricule
     worksheet.getColumn(4).width = 20; // Fonction
     worksheet.getColumn(5).width = 25; // Numéro de compte bancaire
-    worksheet.getColumn(6).width = 18; // Montant
+    worksheet.getColumn(6).width = 20; // Contact téléphonique
+    worksheet.getColumn(7).width = 18; // Montant
 
     // Hauteur de la ligne d'en-tête
     headerRow.height = 30;
@@ -144,15 +146,16 @@ async function generateTransferOrderExcel(order) {
         row.getCell(3).value = employee.matricule || 'N/A';
         row.getCell(4).value = fonction;
         row.getCell(5).value = bankAccountNumber;
-        row.getCell(6).value = amount;
+        row.getCell(6).value = contactNumber;
+        row.getCell(7).value = amount;
 
         // Appliquer le style à toutes les cellules de la ligne
-        for (let i = 1; i <= 6; i++) {
+        for (let i = 1; i <= 7; i++) {
           row.getCell(i).style = cellStyle;
         }
         
         // Style pour la colonne montant (alignement à droite)
-        row.getCell(6).style = {
+        row.getCell(7).style = {
           ...cellStyle,
           alignment: { horizontal: 'right', vertical: 'middle', wrapText: true },
           numFmt: '#,##0'
@@ -183,20 +186,8 @@ async function generateTransferOrderExcel(order) {
         numFmt: '#,##0'
       };
       
-      // Cellule "TOTAL"
-      totalRow.getCell(5).value = 'TOTAL';
-      totalRow.getCell(5).style = {
-        ...totalStyle,
-        alignment: { horizontal: 'right', vertical: 'middle' },
-        font: { bold: true, size: 11 }
-      };
-      
-      // Cellule montant total
-      totalRow.getCell(6).value = totalAmount;
-      totalRow.getCell(6).style = totalStyle;
-      
-      // Appliquer le style aux autres cellules de la ligne de total
-      for (let i = 1; i <= 4; i++) {
+      // Appliquer le style aux cellules vides de la ligne de total (colonnes 1-5)
+      for (let i = 1; i <= 5; i++) {
         totalRow.getCell(i).style = {
           ...cellStyle,
           fill: {
@@ -206,6 +197,18 @@ async function generateTransferOrderExcel(order) {
           }
         };
       }
+      
+      // Cellule "TOTAL" (colonne 6 - Contact téléphonique, mais on affiche "TOTAL")
+      totalRow.getCell(6).value = 'TOTAL';
+      totalRow.getCell(6).style = {
+        ...totalStyle,
+        alignment: { horizontal: 'right', vertical: 'middle' },
+        font: { bold: true, size: 11 }
+      };
+      
+      // Cellule montant total (colonne 7)
+      totalRow.getCell(7).value = totalAmount;
+      totalRow.getCell(7).style = totalStyle;
     }
 
     // Générer le buffer Excel

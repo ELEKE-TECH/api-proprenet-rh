@@ -39,7 +39,8 @@ const payrollSchema = new Schema({
   },
   // Charges salariales (retenues) simplifiées (sans CNPS et IRPP)
   deductions: {
-    autresRetenues: { type: Number, default: 0, min: 0 }, // Autres retenues (regroupe fir, advance, reimbursement)
+    accompte: { type: Number, default: 0, min: 0 }, // Accompte sur salaire
+    autresRetenues: { type: Number, default: 0, min: 0 }, // Autres retenues (regroupe fir, reimbursement)
     totalRetenues: { type: Number, default: 0, min: 0 } // Total retenues (calculé)
   },
   // Charges patronales
@@ -129,12 +130,16 @@ payrollSchema.pre('save', function(next) {
   
   this.gains.grossSalary = grossSalary;
   
-  // Pour le moment, aucune retenue n'est appliquée
-  // Le total des retenues = uniquement autresRetenues (si défini)
-  this.deductions.totalRetenues = this.deductions.autresRetenues || 0;
+  // Le total des retenues = accompte + autresRetenues (inclut FIR, remboursements, etc.)
+  const accompte = this.deductions.accompte || 0;
+  const autresRetenues = this.deductions.autresRetenues || 0;
+  this.deductions.totalRetenues = accompte + autresRetenues;
   
-  // Calculer le salaire net à payer = salaire brut (pas de retenues pour le moment)
-  this.netAmount = grossSalary;
+  // Calculer le salaire net à payer = salaire brut - déductions (accompte + autresRetenues)
+  // Toujours recalculer pour s'assurer que netAmount est cohérent avec les déductions
+  // Cela permet aussi de prendre en compte les accomptes appliqués automatiquement
+  const totalDeductions = this.deductions.totalRetenues || 0;
+  this.netAmount = Math.max(0, grossSalary - totalDeductions);
   
   // S'assurer que cumulative existe
   if (!this.cumulative) {

@@ -8,6 +8,7 @@ const logger = require('../utils/logger');
 const payslipPdfService = require('../services/payslipPdf.service');
 const { generateCashPayrollPDF } = require('../services/cashPayrollPdf.service');
 const { generateCashPayrollExcel } = require('../services/cashPayrollExcel.service');
+const AdvanceService = require('../services/advance.service');
 
 // Générer la paie pour un agent
 exports.generate = async (req, res) => {
@@ -110,42 +111,34 @@ exports.generate = async (req, res) => {
       overtimeHours: gains.overtimeHours || 0
     };
 
-    // Récupérer les avances approuvées non remboursées
-    const advances = await Advance.find({
-      agentId,
-      status: 'approved',
-      remaining: { $gt: 0 }
-    });
-
-    const advancesApplied = [];
-    let totalAdvanceRecovery = 0;
+    // Calculer le salaire brut initial pour déterminer le salaire net approximatif
+    const initialGrossSalary = 
+      (finalBaseSalary || 0) +
+      (gains.transport || 0) +
+      (gains.risk || 0) +
+      (totalIndemnities || 0) +
+      (gains.overtimeHours || 0);
     
-    for (const adv of advances) {
-      const recovery = Math.min(adv.monthlyRecovery || 0, adv.remaining);
-      if (recovery > 0) {
-        advancesApplied.push({ 
-          advanceId: adv._id, 
-          amount: recovery 
-        });
-        totalAdvanceRecovery += recovery;
-        
-        // Mettre à jour l'avance
-        adv.remaining = Math.max(0, adv.remaining - recovery);
-        if (adv.remaining === 0) {
-          adv.status = 'closed';
-          adv.closedAt = new Date();
-        }
-        await adv.save();
-      }
-    }
+    // Utiliser le service AdvanceService pour calculer les remboursements
+    // On utilise le salaire brut comme approximation (sera recalculé après)
+    const advanceRecovery = await AdvanceService.applyAdvancesToPayroll(
+      agentId,
+      initialGrossSalary, // Approximation, sera recalculé après
+      start,
+      end
+    );
+    
+    const advancesApplied = advanceRecovery.advancesApplied;
+    const totalAdvanceRecovery = advanceRecovery.totalRecovery;
 
     // Préparer les déductions simplifiées (sans CNPS et IRPP)
-    // Autres retenues regroupe fir, advance, reimbursement
+    // Accompte est géré automatiquement via les avances (advancesApplied)
+    // autresRetenues regroupe fir, reimbursement
     const autresRetenues = (deductions.fir || 0) + 
-                           ((deductions.advance || 0) + totalAdvanceRecovery) + 
                            (deductions.reimbursement || 0);
     
     const payrollDeductions = {
+      accompte: totalAdvanceRecovery, // Total des avances déduites
       autresRetenues: autresRetenues
     };
 
@@ -158,17 +151,10 @@ exports.generate = async (req, res) => {
     const month = end.getMonth() + 1;
     const year = end.getFullYear();
 
-    // Calculer le salaire net initialement (sera recalculé par le pre-save hook mais on l'initialise pour éviter les erreurs)
-    const initialGrossSalary = 
-      (payrollGains.baseSalary || 0) +
-      (payrollGains.transport || 0) +
-      (payrollGains.risk || 0) +
-      (payrollGains.totalIndemnities || 0) +
-      (payrollGains.overtimeHours || 0);
-    
-    // Pour le moment, aucune retenue n'est appliquée
-    // Le salaire net = salaire brut (pas de déductions)
-    const initialNetAmount = initialGrossSalary;
+    // Le salaire net = salaire brut - déductions (autresRetenues + avances incluses)
+    // L'accompte est déjà inclus dans totalAdvanceRecovery
+    const totalDeductions = autresRetenues + totalAdvanceRecovery;
+    const initialNetAmount = Math.max(0, initialGrossSalary - totalDeductions);
 
     // Utiliser le paymentMethod de l'agent par défaut si non spécifié dans la requête
     const finalPaymentMethod = paymentMethod || agent.paymentMethod || 'bank_transfer';
@@ -193,10 +179,25 @@ exports.generate = async (req, res) => {
 
     await payroll.save();
 
+    // Enregistrer les remboursements d'avances après la création du bulletin
+    if (advancesApplied.length > 0) {
+      try {
+        await AdvanceService.recordPayrollRepayments(
+          payroll._id,
+          advancesApplied,
+          req.userId
+        );
+      } catch (error) {
+        logger.error('Erreur enregistrement remboursements avances:', error);
+        // Ne pas bloquer la création du bulletin si l'enregistrement échoue
+      }
+    }
+
     // Recharger pour avoir les valeurs calculées
     const savedPayroll = await Payroll.findById(payroll._id)
       .populate('agentId', 'firstName lastName maritalStatus address matriculeNumber')
-      .populate('workContractId', 'position contractType');
+      .populate('workContractId', 'position contractType')
+      .populate('advancesApplied.advanceId', 'advanceNumber amount remaining requestedAt');
 
     res.status(201).json({
       message: 'Paie générée avec succès',
@@ -211,7 +212,23 @@ exports.generate = async (req, res) => {
 // Obtenir tous les bulletins de paie
 exports.findAll = async (req, res) => {
   try {
-    const { agentId, month, year, paid, periodStart, periodEnd, siteId, bankId, paymentMethod, page = 1, limit = 20 } = req.query;
+    const { 
+      agentId, 
+      month, 
+      year, 
+      paid, 
+      periodStart, 
+      periodEnd, 
+      siteId, 
+      bankId, 
+      paymentMethod, 
+      paymentType,
+      minNetAmount,
+      maxNetAmount,
+      search,
+      page = 1, 
+      limit = 20 
+    } = req.query;
     
     const query = {};
     if (agentId) query.agentId = agentId;
@@ -219,18 +236,29 @@ exports.findAll = async (req, res) => {
     if (year) query.year = parseInt(year);
     if (paid !== undefined) query.paid = paid === 'true';
     if (paymentMethod) query.paymentMethod = paymentMethod;
-    if (periodStart) {
-      const start = new Date(periodStart);
-      query.periodStart = { $gte: start };
-    }
-    if (periodEnd) {
-      const end = new Date(periodEnd);
-      end.setHours(23, 59, 59, 999);
-      if (query.periodStart) {
-        query.periodEnd = { $lte: end };
-      } else {
-        query.periodEnd = { $lte: end };
+    if (paymentType) query.paymentType = paymentType;
+    
+    // Filtre par période : trouver les bulletins dont la période chevauche avec la période recherchée
+    if (periodStart || periodEnd) {
+      const periodConditions = {};
+      
+      if (periodStart) {
+        const start = new Date(periodStart);
+        start.setHours(0, 0, 0, 0);
+        // La période du bulletin doit commencer avant ou à la fin de la période recherchée
+        // et se terminer après ou au début de la période recherchée
+        periodConditions.periodEnd = { $gte: start };
       }
+      
+      if (periodEnd) {
+        const end = new Date(periodEnd);
+        end.setHours(23, 59, 59, 999);
+        // La période du bulletin doit se terminer après ou au début de la période recherchée
+        periodConditions.periodStart = { $lte: end };
+      }
+      
+      // Fusionner les conditions de période avec la requête existante
+      Object.assign(query, periodConditions);
     }
 
     // Filtre par banque : trouver les agents avec cette banque
@@ -328,6 +356,90 @@ exports.findAll = async (req, res) => {
       } else {
         query.agentId = { $in: agentIdsWithSite };
         logger.info(`[findAll] Filtrage par site appliqué: ${agentIdsWithSite.length} agents`);
+      }
+    }
+
+    // Filtre par montant net
+    if (minNetAmount || maxNetAmount) {
+      query.netAmount = {};
+      if (minNetAmount) query.netAmount.$gte = parseFloat(minNetAmount);
+      if (maxNetAmount) query.netAmount.$lte = parseFloat(maxNetAmount);
+    }
+
+    // Filtre par recherche (nom d'agent)
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      const User = require('../models/user.model');
+      
+      // Chercher les utilisateurs correspondants
+      const users = await User.find({
+        $or: [
+          { email: searchRegex },
+          { phone: searchRegex }
+        ]
+      }).select('_id');
+      
+      const userIds = users.map(u => u._id);
+      
+      // Chercher les agents correspondants
+      const agents = await Agent.find({
+        $or: [
+          { firstName: searchRegex },
+          { lastName: searchRegex },
+          { matriculeNumber: searchRegex },
+          ...(userIds.length > 0 ? [{ userId: { $in: userIds } }] : [])
+        ]
+      }).select('_id');
+      
+      const agentIdsFromSearch = agents.map(a => a._id);
+      
+      if (agentIdsFromSearch.length > 0) {
+        // Combiner avec les filtres existants
+        if (query.agentId) {
+          if (typeof query.agentId === 'object' && query.agentId.$in) {
+            // Intersection
+            query.agentId.$in = query.agentId.$in.filter(id => 
+              agentIdsFromSearch.some(searchId => searchId.toString() === id.toString())
+            );
+            if (query.agentId.$in.length === 0) {
+              return res.json({
+                payrolls: [],
+                pagination: {
+                  total: 0,
+                  page: parseInt(page),
+                  limit: parseInt(limit),
+                  pages: 0
+                }
+              });
+            }
+          } else {
+            // Vérifier si l'agent correspond à la recherche
+            if (!agentIdsFromSearch.some(id => id.toString() === query.agentId.toString())) {
+              return res.json({
+                payrolls: [],
+                pagination: {
+                  total: 0,
+                  page: parseInt(page),
+                  limit: parseInt(limit),
+                  pages: 0
+                }
+              });
+            }
+          }
+        } else {
+          query.agentId = { $in: agentIdsFromSearch };
+        }
+      } else {
+        // Aucun agent ne correspond à la recherche
+        return res.json({
+          payrolls: [],
+          pagination: {
+            total: 0,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            pages: 0
+          }
+        });
       }
     }
 
@@ -519,7 +631,7 @@ exports.findOne = async (req, res) => {
     const payroll = await Payroll.findById(req.params.id)
       .populate('agentId', 'firstName lastName maritalStatus address matriculeNumber')
       .populate('workContractId', 'position contractType startDate endDate')
-      .populate('advancesApplied.advanceId')
+      .populate('advancesApplied.advanceId', 'advanceNumber amount remaining requestedAt')
       .populate('createdBy', 'email firstName lastName');
 
     if (!payroll) {
@@ -596,36 +708,31 @@ exports.update = async (req, res) => {
     }
     
     if (req.body.deductions) {
-      // Récupérer les avances approuvées non remboursées pour cette mise à jour
-      const advances = await Advance.find({
-        agentId: payroll.agentId,
-        status: 'approved',
-        remaining: { $gt: 0 }
-      });
-
-      let totalAdvanceRecovery = 0;
-      const advancesApplied = [];
+      // Calculer le salaire net approximatif pour déterminer les remboursements d'avances
+      const currentGrossSalary = 
+        (payroll.gains?.baseSalary || 0) +
+        (payroll.gains?.transport || 0) +
+        (payroll.gains?.risk || 0) +
+        (payroll.gains?.totalIndemnities || 0) +
+        (payroll.gains?.overtimeHours || 0);
       
-      for (const adv of advances) {
-        const recovery = Math.min(adv.monthlyRecovery || 0, adv.remaining);
-        if (recovery > 0) {
-          advancesApplied.push({ 
-            advanceId: adv._id, 
-            amount: recovery 
-          });
-          totalAdvanceRecovery += recovery;
-        }
-      }
+      // Utiliser le service AdvanceService pour calculer les remboursements
+      const advanceRecovery = await AdvanceService.applyAdvancesToPayroll(
+        payroll.agentId,
+        currentGrossSalary, // Approximation
+        payroll.periodStart,
+        payroll.periodEnd
+      );
       
       const updatedDeductions = { ...payroll.deductions, ...req.body.deductions };
       
       // Si autresRetenues n'est pas fourni, le calculer à partir des anciens champs ou inclure les avances
       if (updatedDeductions.autresRetenues === undefined) {
         const oldDeductions = payroll.deductions || {};
-        updatedDeductions.autresRetenues = (oldDeductions.autresRetenues || 0) + totalAdvanceRecovery;
+        updatedDeductions.autresRetenues = (oldDeductions.autresRetenues || 0) + advanceRecovery.totalRecovery;
       } else {
         // Si autresRetenues est fourni, ajouter les avances s'il n'y en a pas déjà
-        updatedDeductions.autresRetenues = (updatedDeductions.autresRetenues || 0) + totalAdvanceRecovery;
+        updatedDeductions.autresRetenues = (updatedDeductions.autresRetenues || 0) + advanceRecovery.totalRecovery;
       }
       
       // Supprimer CNPS et IRPP s'ils existent dans les anciennes données
@@ -635,8 +742,8 @@ exports.update = async (req, res) => {
       payroll.deductions = updatedDeductions;
       
       // Mettre à jour les avances appliquées
-      if (advancesApplied.length > 0) {
-        payroll.advancesApplied = advancesApplied;
+      if (advanceRecovery.advancesApplied.length > 0) {
+        payroll.advancesApplied = advanceRecovery.advancesApplied;
       }
     }
     if (req.body.employerCharges) payroll.employerCharges = { ...payroll.employerCharges, ...req.body.employerCharges };
@@ -933,18 +1040,13 @@ exports.delete = async (req, res) => {
       });
     }
 
-    // Restaurer les avances si nécessaire
+    // Restaurer les avances si nécessaire en utilisant le service
     if (payroll.advancesApplied && payroll.advancesApplied.length > 0) {
-      for (const applied of payroll.advancesApplied) {
-        const advance = await Advance.findById(applied.advanceId);
-        if (advance) {
-          advance.remaining = (advance.remaining || 0) + (applied.amount || 0);
-          if (advance.status === 'closed') {
-            advance.status = 'approved';
-            advance.closedAt = null;
-          }
-          await advance.save();
-        }
+      try {
+        await AdvanceService.cancelPayrollRepayments(payroll._id);
+      } catch (error) {
+        logger.error('Erreur restauration avances lors de la suppression:', error);
+        // Continuer la suppression même si la restauration échoue
       }
     }
 

@@ -19,6 +19,7 @@ class PayslipPdfService {
       const payroll = await Payroll.findById(payrollId)
         .populate('agentId', 'firstName lastName baseSalary hourlyRate maritalStatus address matriculeNumber')
         .populate('workContractId', 'position contractType')
+        .populate('advancesApplied.advanceId', 'advanceNumber amount remaining requestedAt')
         .populate('createdBy', 'email');
 
       if (!payroll) {
@@ -166,15 +167,30 @@ class PayslipPdfService {
       // Déductions simplifiées (sans CNPS et IRPP)
       const autresRetenuesRounded = Math.round(safeNumber(deductions.autresRetenues));
       
-      // Utiliser le total retenues calculé par le modèle si disponible
-      const totalRetenuesFromModel = safeNumber(deductions.totalRetenues);
-      const calculatedTotalRetenues = Math.round(autresRetenuesRounded);
-      const totalRetenues = (totalRetenuesFromModel > 0) ? Math.round(totalRetenuesFromModel) : calculatedTotalRetenues;
+      // Calculer le total des avances déduites
+      const totalAdvanceDeduction = payroll.advancesApplied && payroll.advancesApplied.length > 0
+        ? payroll.advancesApplied.reduce((sum, adv) => sum + (adv.amount || 0), 0)
+        : 0;
       
-      // Utiliser le salaire net calculé par le modèle
+      // Le total retenues doit inclure les avances déduites + autres retenues
+      // Si deductions.accompte est défini, l'utiliser, sinon utiliser totalAdvanceDeduction
+      const accompteAmount = safeNumber(deductions.accompte) || totalAdvanceDeduction;
+      const totalRetenuesCalculated = accompteAmount + autresRetenuesRounded;
+      
+      // Utiliser le total retenues calculé par le modèle si disponible, sinon calculer
+      const totalRetenuesFromModel = safeNumber(deductions.totalRetenues);
+      const totalRetenues = (totalRetenuesFromModel > 0 && totalRetenuesFromModel >= totalRetenuesCalculated) 
+        ? Math.round(totalRetenuesFromModel) 
+        : Math.round(totalRetenuesCalculated);
+      
+      // Utiliser le salaire net calculé par le modèle (qui devrait déjà être correct)
+      // Mais recalculer pour être sûr qu'il prend en compte les avances
       const netSalaryFromModel = safeNumber(payroll.netAmount);
       const calculatedNetSalary = Math.max(0, Math.round(grossSalary - totalRetenues));
-      const netSalary = (netSalaryFromModel > 0) ? Math.round(netSalaryFromModel) : calculatedNetSalary;
+      // Utiliser le netAmount du modèle s'il est cohérent, sinon utiliser le calcul
+      const netSalary = (netSalaryFromModel > 0 && Math.abs(netSalaryFromModel - calculatedNetSalary) < 1) 
+        ? Math.round(netSalaryFromModel) 
+        : calculatedNetSalary;
 
       // Fonction helper pour ajouter une ligne avec style alterné
       let rowIndex = 0;
@@ -234,8 +250,11 @@ class PayslipPdfService {
       
       addRow('Salaire Brut', grossSalary, true, true);
       
-      // Ligne de séparation avant les déductions (seulement si il y a des retenues)
-      if (autresRetenuesRounded > 0) {
+      // Vérifier s'il y a des avances (déjà calculé plus haut)
+      const hasAdvances = payroll.advancesApplied && payroll.advancesApplied.length > 0;
+      
+      // Ligne de séparation avant les déductions (seulement si il y a des retenues ou des avances)
+      if (autresRetenuesRounded > 0 || totalAdvanceDeduction > 0) {
         currentY += 5;
         doc.strokeColor('#e2e8f0')
            .lineWidth(0.5)
@@ -244,7 +263,34 @@ class PayslipPdfService {
            .stroke();
         currentY += 8;
         
-        addRow('Autres retenues', autresRetenuesRounded);
+        // Afficher les avances déduites si présentes
+        if (hasAdvances && totalAdvanceDeduction > 0) {
+          // Afficher chaque avance individuellement
+          payroll.advancesApplied.forEach((adv) => {
+            if (adv.amount > 0) {
+              const advanceNumber = (adv.advanceId && typeof adv.advanceId === 'object' && adv.advanceId.advanceNumber) 
+                ? adv.advanceId.advanceNumber 
+                : 'Accompte';
+              addRow(`Accompte (${advanceNumber})`, Math.round(adv.amount));
+            }
+          });
+          
+          // Si il y a aussi d'autres retenues, ajouter une ligne de séparation
+          if (autresRetenuesRounded > 0) {
+            currentY += 3;
+            doc.strokeColor('#f3f4f6')
+               .lineWidth(0.3)
+               .moveTo(margin + 10, currentY)
+               .lineTo(margin + contentWidth - 10, currentY)
+               .stroke();
+            currentY += 5;
+          }
+        }
+        
+        // Afficher les autres retenues si présentes
+        if (autresRetenuesRounded > 0) {
+          addRow('Autres retenues', autresRetenuesRounded);
+        }
         
         // Ligne de séparation avant Total Retenues
         currentY += 5;
