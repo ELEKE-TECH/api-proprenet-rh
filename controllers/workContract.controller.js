@@ -19,7 +19,7 @@ exports.create = async (req, res) => {
     if (!contractData.contractNumber || (typeof contractData.contractNumber === 'string' && contractData.contractNumber.trim() === '')) {
       const count = await WorkContract.countDocuments();
       const year = new Date().getFullYear();
-      contractData.contractNumber = `CT-${year}-${String(count + 1).padStart(6, '0')}`;
+      contractData.contractNumber = `CT-${year}-${String(count + 1).padStart(4, '0')}`;
       logger.info(`Numéro de contrat généré: ${contractData.contractNumber}`);
     }
     

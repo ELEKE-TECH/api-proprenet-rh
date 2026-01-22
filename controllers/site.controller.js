@@ -20,6 +20,21 @@ exports.create = async (req, res) => {
       monthlyPrice
     } = req.body;
 
+    // Nettoyer le format location pour s'assurer qu'il est au format GeoJSON valide
+    let cleanedLocation = { type: 'Point', coordinates: [0, 0] };
+    if (location) {
+      cleanedLocation = {
+        type: location.type || 'Point',
+        coordinates: (location.coordinates && Array.isArray(location.coordinates)) 
+          ? location.coordinates 
+          : [0, 0]
+      };
+      // Retirer le champ address s'il existe dans location (il doit être au niveau racine)
+      if (cleanedLocation.address !== undefined) {
+        delete cleanedLocation.address;
+      }
+    }
+
     const siteData = {
       name,
       code,
@@ -30,7 +45,7 @@ exports.create = async (req, res) => {
       clientId,
       capacity,
       contactInfo: contactInfo || {},
-      location: location || { type: 'Point', coordinates: [0, 0] },
+      location: cleanedLocation,
       monthlyPrice: monthlyPrice || 0,
       agents: agents || []
     };
@@ -175,7 +190,22 @@ exports.update = async (req, res) => {
     if (clientId !== undefined) updateData.clientId = clientId;
     if (capacity !== undefined) updateData.capacity = capacity;
     if (contactInfo !== undefined) updateData.contactInfo = contactInfo;
-    if (location !== undefined) updateData.location = location;
+    if (location !== undefined) {
+      // Nettoyer le format location pour s'assurer qu'il est au format GeoJSON valide
+      // Retirer le champ 'address' s'il existe dans location (il doit être au niveau racine)
+      const cleanedLocation = { ...location };
+      if (cleanedLocation.address !== undefined) {
+        delete cleanedLocation.address;
+      }
+      // S'assurer que type et coordinates sont présents
+      if (!cleanedLocation.type) {
+        cleanedLocation.type = 'Point';
+      }
+      if (!cleanedLocation.coordinates || !Array.isArray(cleanedLocation.coordinates)) {
+        cleanedLocation.coordinates = [0, 0];
+      }
+      updateData.location = cleanedLocation;
+    }
     if (monthlyPrice !== undefined) updateData.monthlyPrice = monthlyPrice;
     if (agents !== undefined) updateData.agents = agents;
 

@@ -12,6 +12,7 @@ const employeeSchema = new Schema({
   fonction: { type: String, trim: true },
   service: { type: String, trim: true },
   accountType: { type: String, trim: true }, // Type de compte bancaire
+  accountNumber: { type: String, trim: true }, // Numéro de compte bancaire
   contactNumber: { type: String, trim: true },
   amount: { type: Number, required: true, min: 0 },
   agentId: { 

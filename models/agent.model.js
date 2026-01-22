@@ -142,27 +142,34 @@ agentSchema.pre('save', async function(next) {
   // Générer le matricule uniquement si ce n'est pas déjà défini et si c'est un nouveau document
   if ((!this.matriculeNumber || this.matriculeNumber === '') && this.isNew) {
     try {
-      const currentYear = new Date().getFullYear();
-      
-      // Utiliser directement mongoose.model pour éviter les problèmes de référence circulaire
-      // Note: mongoose.models.Agent sera disponible après la première compilation du modèle
-      const AgentModel = mongoose.models.Agent;
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1; // 1-12
+      const currentYear = now.getFullYear();
       
       // Utiliser this.constructor qui fait référence au modèle même dans le hook pre-save
       let lastAgent = null;
       
       try {
-        // Trouver le dernier matricule de l'année en cours
+        // Trouver le dernier matricule du mois en cours (format: NNMMYYYY)
+        // Exemple: 86012026 pour l'agent 86 créé en janvier 2026
+        const monthPattern = String(currentMonth).padStart(2, '0');
+        const yearPattern = String(currentYear);
+        const regexPattern = new RegExp(`^\\d{2}${monthPattern}${yearPattern}$`);
+        
         lastAgent = await this.constructor.findOne({
-          matriculeNumber: new RegExp(`^\\d{3}/PNET/${currentYear}$`),
+          matriculeNumber: regexPattern,
           _id: { $ne: this._id } // Exclure le document courant
         }).sort({ matriculeNumber: -1 });
       } catch (queryError) {
         // Fallback: utiliser la collection directement si this.constructor échoue
         try {
+          const monthPattern = String(currentMonth).padStart(2, '0');
+          const yearPattern = String(currentYear);
+          const regexPattern = new RegExp(`^\\d{2}${monthPattern}${yearPattern}$`);
+          
           lastAgent = await mongoose.connection.db.collection('agents').findOne(
             { 
-              matriculeNumber: new RegExp(`^\\d{3}/PNET/${currentYear}$`),
+              matriculeNumber: regexPattern,
               _id: { $ne: this._id }
             },
             { sort: { matriculeNumber: -1 } }
@@ -175,21 +182,31 @@ agentSchema.pre('save', async function(next) {
       let nextNumber = 1;
       
       if (lastAgent && lastAgent.matriculeNumber) {
-        // Extraire le numéro du dernier matricule (format: 090/PNET/2025)
-        const parts = lastAgent.matriculeNumber.split('/');
-        if (parts.length === 3 && parts[1] === 'PNET' && parts[2] === String(currentYear)) {
-          nextNumber = parseInt(parts[0], 10) + 1;
+        // Extraire le numéro du dernier matricule (format: 86012026)
+        // Les 2 premiers chiffres sont le numéro de l'agent
+        const agentNumberStr = lastAgent.matriculeNumber.substring(0, 2);
+        const agentNumber = parseInt(agentNumberStr, 10);
+        if (!isNaN(agentNumber)) {
+          nextNumber = agentNumber + 1;
         }
       }
       
-      // Formater le numéro avec 3 chiffres (001, 002, ..., 090, etc.)
-      this.matriculeNumber = `${String(nextNumber).padStart(3, '0')}/PNET/${currentYear}`;
+      // Formater le matricule: Number-Month-Year (ex: 86012026)
+      // Format: NNMMYYYY où NN = numéro agent, MM = mois, YYYY = année
+      const agentNumberStr = String(nextNumber).padStart(2, '0');
+      const monthStr = String(currentMonth).padStart(2, '0');
+      const yearStr = String(currentYear);
+      this.matriculeNumber = `${agentNumberStr}${monthStr}${yearStr}`;
     } catch (error) {
       // En cas d'erreur, générer un matricule basé sur l'ID
       logger.error('Erreur génération matricule:', error);
-      const currentYear = new Date().getFullYear();
-      const fallbackNumber = String(Date.now()).slice(-3);
-      this.matriculeNumber = `${fallbackNumber}/PNET/${currentYear}`;
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+      const fallbackNumber = String(Date.now()).slice(-2).padStart(2, '0');
+      const monthStr = String(currentMonth).padStart(2, '0');
+      const yearStr = String(currentYear);
+      this.matriculeNumber = `${fallbackNumber}${monthStr}${yearStr}`;
     }
   }
   

@@ -94,11 +94,14 @@ async function generateTransferOrderExcel(order) {
         const row = worksheet.getRow(4 + index);
         const fullName = `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || 'N/A';
         
-        // Récupérer les informations complètes de l'agent si agentId est disponible
-        let bankAccountNumber = 'N/A';
+        // Utiliser le numéro de compte depuis l'objet employee s'il est disponible
+        // Sinon, le récupérer depuis l'agent
+        let bankAccountNumber = employee.accountNumber || 'N/A';
+        let contactNumber = employee.contactNumber || 'N/A';
         let fonction = employee.fonction || 'N/A';
         
-        if (employee.agentId) {
+        // Si le numéro de compte n'est pas dans l'objet employee, le récupérer depuis l'agent
+        if ((!bankAccountNumber || bankAccountNumber === 'N/A') && employee.agentId) {
           try {
             const agentId = typeof employee.agentId === 'string' ? employee.agentId : employee.agentId._id || employee.agentId;
             const agent = await Agent.findById(agentId)
@@ -109,6 +112,11 @@ async function generateTransferOrderExcel(order) {
               // Numéro de compte bancaire
               if (agent.bankAccount && agent.bankAccount.accountNumber) {
                 bankAccountNumber = agent.bankAccount.accountNumber;
+              }
+              
+              // Numéro de téléphone si non disponible dans employee
+              if ((!contactNumber || contactNumber === 'N/A') && agent.userId && typeof agent.userId === 'object' && agent.userId.phone) {
+                contactNumber = agent.userId.phone;
               }
               
               // Fonction depuis le contrat actif si disponible

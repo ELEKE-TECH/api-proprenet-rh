@@ -72,10 +72,6 @@ const siteSchema = new Schema({
     coordinates: {
       type: [Number], // [longitude, latitude]
       default: [0, 0]
-    },
-    address: {
-      type: String,
-      trim: true
     }
   },
   agents: [{
@@ -131,9 +127,65 @@ siteSchema.index({ location: '2dsphere' });
 siteSchema.index({ clientId: 1, status: 1 });
 siteSchema.index({ clientId: 1, type: 1 });
 
-// Mettre à jour updatedAt avant la sauvegarde
+// Mettre à jour updatedAt avant la sauvegarde et nettoyer le format location
 siteSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
+  
+  // Nettoyer le format location pour s'assurer qu'il est au format GeoJSON valide
+  // Retirer le champ 'address' s'il existe dans location (il doit être au niveau racine)
+  if (this.location && typeof this.location === 'object') {
+    // S'assurer que location a le format GeoJSON valide
+    if (!this.location.type) {
+      this.location.type = 'Point';
+    }
+    if (!this.location.coordinates || !Array.isArray(this.location.coordinates)) {
+      this.location.coordinates = [0, 0];
+    }
+    // Retirer le champ address s'il existe dans location (non valide pour GeoJSON)
+    if (this.location.address !== undefined) {
+      delete this.location.address;
+    }
+  }
+  
+  next();
+});
+
+// Hook pre-update pour nettoyer le format location lors des mises à jour
+siteSchema.pre(['findOneAndUpdate', 'updateOne', 'updateMany'], function(next) {
+  const update = this.getUpdate();
+  
+  // Nettoyer location dans $set
+  if (update && update.$set && update.$set.location) {
+    const location = update.$set.location;
+    // Retirer le champ address s'il existe dans location
+    if (location && typeof location === 'object' && location.address !== undefined) {
+      delete location.address;
+    }
+    // S'assurer que location a le format GeoJSON valide
+    if (location && typeof location === 'object') {
+      if (!location.type) {
+        location.type = 'Point';
+      }
+      if (!location.coordinates || !Array.isArray(location.coordinates)) {
+        location.coordinates = [0, 0];
+      }
+    }
+  }
+  
+  // Nettoyer location dans update direct (sans $set)
+  if (update && update.location && typeof update.location === 'object') {
+    const location = update.location;
+    if (location.address !== undefined) {
+      delete location.address;
+    }
+    if (!location.type) {
+      location.type = 'Point';
+    }
+    if (!location.coordinates || !Array.isArray(location.coordinates)) {
+      location.coordinates = [0, 0];
+    }
+  }
+  
   next();
 });
 
