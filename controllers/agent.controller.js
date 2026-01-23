@@ -183,7 +183,7 @@ exports.findAll = async (req, res) => {
       .populate('bankAccount.bankId', 'name code')
       .skip(skip)
       .limit(parseInt(limit))
-      .sort({ lastName: 1, firstName: 1 });
+      .sort({ firstName: 1, lastName: 1 });
 
     // Filtre par site (via les contrats actifs)
     if (siteId) {
@@ -223,6 +223,18 @@ exports.findAll = async (req, res) => {
       const salary = salaryByAgent[agentId] || {};
       agentObj.baseSalary = salary.baseSalary || 0;
       return agentObj;
+    });
+
+    // Trier par ordre alphabétique (prénom puis nom) - case-insensitive
+    agentsWithSalary.sort((a, b) => {
+      const firstNameA = (a.firstName || '').toLowerCase();
+      const firstNameB = (b.firstName || '').toLowerCase();
+      if (firstNameA !== firstNameB) {
+        return firstNameA.localeCompare(firstNameB, 'fr');
+      }
+      const lastNameA = (a.lastName || '').toLowerCase();
+      const lastNameB = (b.lastName || '').toLowerCase();
+      return lastNameA.localeCompare(lastNameB, 'fr');
     });
 
     res.json({

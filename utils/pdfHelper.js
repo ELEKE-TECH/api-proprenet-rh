@@ -70,7 +70,7 @@ function addProfessionalHeaderWithLogo(doc, pageWidth, margin, title, contactInf
        .stroke();
   }
 
-  // Ligne de contacts centrée entre le logo et le titre
+  // Ligne de contacts centrée sous le logo
   const contactText = 'Contacts : (+235) 62 23 26 17 / 62 23 26 47 | Avenue Mgr. MATHIAS NGARTERI MAYADI, 7ème Arrondissement / B.P: 1743 NDJ-Tchad';
   const contactY = logoY + logoSize + 8;
   
@@ -82,8 +82,16 @@ function addProfessionalHeaderWithLogo(doc, pageWidth, margin, title, contactInf
        align: 'center'
      });
 
-  // Titre principal centré (sous la ligne de contacts)
-  const titleY = contactY + 12;
+  // Ligne de séparation en bas du header (section avec les lignes)
+  const separatorY = headerStartY + headerHeight;
+  doc.moveTo(margin, separatorY)
+     .lineTo(margin + contentWidth, separatorY)
+     .strokeColor('#e5e7eb')
+     .lineWidth(1)
+     .stroke();
+
+  // Titre principal centré (en dehors de la section avec les lignes)
+  const titleY = separatorY + 20;
   
   // Ombre pour le titre
   doc.fontSize(16)
@@ -101,24 +109,8 @@ function addProfessionalHeaderWithLogo(doc, pageWidth, margin, title, contactInf
        width: contentWidth
      });
 
-  // Ligne décorative sous le titre
-  const headerTitleLineY = titleY + 16;
-  doc.moveTo(margin, headerTitleLineY)
-     .lineTo(margin + contentWidth, headerTitleLineY)
-     .strokeColor('#1e40af')
-     .lineWidth(1.5)
-     .stroke();
-
-  // Ligne de séparation en bas du header
-  const separatorY = headerStartY + headerHeight;
-  doc.moveTo(margin, separatorY)
-     .lineTo(margin + contentWidth, separatorY)
-     .strokeColor('#e5e7eb')
-     .lineWidth(1)
-     .stroke();
-
-  // Positionner après le header
-  doc.y = separatorY + 15;
+  // Positionner après le titre
+  doc.y = titleY + 20;
   
   return doc.y;
 }
