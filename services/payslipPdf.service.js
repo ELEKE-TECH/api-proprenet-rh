@@ -151,6 +151,7 @@ class PayslipPdfService {
       const transportRounded = Math.round(safeNumber(gains.transport));
       const riskRounded = Math.round(safeNumber(gains.risk));
       const totalIndemnitiesRounded = Math.round(safeNumber(gains.totalIndemnities));
+      const sursalaireRounded = Math.round(safeNumber(gains.sursalaire));
       const overtimeHoursRounded = Math.round(safeNumber(gains.overtimeHours));
       
       // Utiliser le salaire brut calculé par le modèle comme source de vérité
@@ -161,11 +162,12 @@ class PayslipPdfService {
       } else {
         // Calculer manuellement si non disponible
         grossSalary = Math.round(baseSalaryRounded + transportRounded + riskRounded + 
-                                 totalIndemnitiesRounded + overtimeHoursRounded);
+                                 totalIndemnitiesRounded + sursalaireRounded + overtimeHoursRounded);
       }
       
       // Déductions simplifiées (sans CNPS et IRPP)
       const autresRetenuesRounded = Math.round(safeNumber(deductions.autresRetenues));
+      const absencesRounded = Math.round(safeNumber(deductions.absences));
       
       // Calculer le total des avances déduites
       const totalAdvanceDeduction = payroll.advancesApplied && payroll.advancesApplied.length > 0
@@ -175,7 +177,7 @@ class PayslipPdfService {
       // Le total retenues doit inclure les avances déduites + autres retenues
       // Si deductions.accompte est défini, l'utiliser, sinon utiliser totalAdvanceDeduction
       const accompteAmount = safeNumber(deductions.accompte) || totalAdvanceDeduction;
-      const totalRetenuesCalculated = accompteAmount + autresRetenuesRounded;
+      const totalRetenuesCalculated = accompteAmount + autresRetenuesRounded + absencesRounded;
       
       // Utiliser le total retenues calculé par le modèle si disponible, sinon calculer
       const totalRetenuesFromModel = safeNumber(deductions.totalRetenues);
@@ -237,6 +239,7 @@ class PayslipPdfService {
       addRow('Prime de transport', transportRounded);
       addRow('Prime de risque', riskRounded);
       addRow('Indemnite Service Rendu', totalIndemnitiesRounded);
+      addRow('Sursalaire', sursalaireRounded);
       addRow('Heures supplémentaires', overtimeHoursRounded);
       
       // Ligne de séparation avant Salaire Brut
@@ -254,7 +257,7 @@ class PayslipPdfService {
       const hasAdvances = payroll.advancesApplied && payroll.advancesApplied.length > 0;
       
       // Ligne de séparation avant les déductions (seulement si il y a des retenues ou des avances)
-      if (autresRetenuesRounded > 0 || totalAdvanceDeduction > 0) {
+      if (autresRetenuesRounded > 0 || absencesRounded > 0 || totalAdvanceDeduction > 0) {
         currentY += 5;
         doc.strokeColor('#e2e8f0')
            .lineWidth(0.5)
@@ -285,6 +288,11 @@ class PayslipPdfService {
                .stroke();
             currentY += 5;
           }
+        }
+        
+        // Afficher les absences si présentes
+        if (absencesRounded > 0) {
+          addRow('Absences', absencesRounded);
         }
         
         // Afficher les autres retenues si présentes

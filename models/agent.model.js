@@ -27,6 +27,10 @@ const agentSchema = new Schema({
     required: true,
     trim: true
   },
+  phone: {
+    type: String,
+    trim: true
+  },
   birthDate: { 
     type: Date 
   },

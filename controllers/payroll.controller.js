@@ -86,6 +86,7 @@ exports.generate = async (req, res) => {
     // Récupérer le salaire de base depuis le contrat
     const baseSalary = activeContract.salary?.baseSalary || 0;
     const contractIndemnities = activeContract.salary?.indemnities || 0;
+    const contractSursalaire = activeContract.salary?.sursalaire || 0;
     
     // Calculer le salaire de base final (utiliser celui fourni ou celui du contrat)
     const finalBaseSalary = gains.baseSalary !== undefined ? gains.baseSalary : baseSalary;
@@ -108,6 +109,7 @@ exports.generate = async (req, res) => {
       transport: gains.transport || 0,
       risk: gains.risk || 0,
       totalIndemnities: totalIndemnities,
+      sursalaire: gains.sursalaire !== undefined ? gains.sursalaire : contractSursalaire,
       overtimeHours: gains.overtimeHours || 0
     };
 
@@ -117,6 +119,7 @@ exports.generate = async (req, res) => {
       (gains.transport || 0) +
       (gains.risk || 0) +
       (totalIndemnities || 0) +
+      (gains.sursalaire !== undefined ? gains.sursalaire : contractSursalaire || 0) +
       (gains.overtimeHours || 0);
     
     // Utiliser le service AdvanceService pour calculer les remboursements
@@ -136,10 +139,12 @@ exports.generate = async (req, res) => {
     // autresRetenues regroupe fir, reimbursement
     const autresRetenues = (deductions.fir || 0) + 
                            (deductions.reimbursement || 0);
+    const absences = deductions.absences || 0;
     
     const payrollDeductions = {
       accompte: totalAdvanceRecovery, // Total des avances déduites
-      autresRetenues: autresRetenues
+      autresRetenues: autresRetenues,
+      absences: absences
     };
 
     // Préparer les charges patronales
@@ -714,6 +719,7 @@ exports.update = async (req, res) => {
         (payroll.gains?.transport || 0) +
         (payroll.gains?.risk || 0) +
         (payroll.gains?.totalIndemnities || 0) +
+        (payroll.gains?.sursalaire || 0) +
         (payroll.gains?.overtimeHours || 0);
       
       // Utiliser le service AdvanceService pour calculer les remboursements
@@ -733,6 +739,10 @@ exports.update = async (req, res) => {
       } else {
         // Si autresRetenues est fourni, ajouter les avances s'il n'y en a pas déjà
         updatedDeductions.autresRetenues = (updatedDeductions.autresRetenues || 0) + advanceRecovery.totalRecovery;
+      }
+      
+      if (updatedDeductions.absences === undefined) {
+        updatedDeductions.absences = payroll.deductions?.absences || 0;
       }
       
       // Supprimer CNPS et IRPP s'ils existent dans les anciennes données
@@ -889,7 +899,7 @@ exports.generateCashPayrollState = async (req, res) => {
     const payrolls = await Payroll.find(query)
       .populate({
         path: 'agentId',
-        select: 'firstName lastName matriculeNumber userId',
+        select: 'firstName lastName matriculeNumber userId phone',
         populate: {
           path: 'userId',
           select: 'email phone'

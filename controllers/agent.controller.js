@@ -39,6 +39,7 @@ exports.create = async (req, res) => {
     const agentData = {
       firstName,
       lastName,
+      phone: phone || undefined,
       birthDate,
       address,
       languages: languages || [],
@@ -293,6 +294,9 @@ exports.update = async (req, res) => {
   try {
     const { id } = req.params;
     const { email, phone, ...agentUpdateData } = req.body;
+    if (phone !== undefined) {
+      agentUpdateData.phone = phone;
+    }
 
     // Supprimer location si présent (plus utilisé)
     if (agentUpdateData.location) {

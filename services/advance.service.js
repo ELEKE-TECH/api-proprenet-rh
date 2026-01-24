@@ -239,6 +239,7 @@ class AdvanceService {
                         (payroll.gains?.transport || 0) + 
                         (payroll.gains?.risk || 0) + 
                         (payroll.gains?.totalIndemnities || 0) + 
+                        (payroll.gains?.sursalaire || 0) + 
                         (payroll.gains?.overtimeHours || 0);
     
     logger.info(`[APPLY ADVANCE] Calcul récupération: salaire brut = ${grossSalary}, salaire net actuel = ${currentNetAmount}, monthlyRecovery = ${advance.monthlyRecovery}, remaining = ${advance.remaining}`);

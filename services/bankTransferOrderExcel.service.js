@@ -129,6 +129,9 @@ async function generateTransferOrderExcel(order) {
               }
               
               // Numéro de téléphone si non disponible dans employee
+              if ((!contactNumber || contactNumber === 'N/A') && agent.phone) {
+                contactNumber = agent.phone;
+              }
               if ((!contactNumber || contactNumber === 'N/A') && agent.userId && typeof agent.userId === 'object' && agent.userId.phone) {
                 contactNumber = agent.userId.phone;
               }

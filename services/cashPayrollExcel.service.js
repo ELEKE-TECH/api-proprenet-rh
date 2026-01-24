@@ -139,13 +139,13 @@ async function generateCashPayrollExcel(payrolls, periodStart, periodEnd, siteNa
       const netAmount = payroll.netAmount || 0;
       totalAmount += netAmount;
 
-      // Récupérer le contact (email ou téléphone)
-      let contact = 'N/A';
+      // Récupérer le contact (téléphone en priorité)
+      let contact = agent.phone || 'N/A';
       if (agent.userId) {
         const user = agent.userId;
         if (user.phone) {
           contact = user.phone;
-        } else if (user.email) {
+        } else if (!agent.phone && user.email) {
           contact = user.email;
         }
       }

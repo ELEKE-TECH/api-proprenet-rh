@@ -9,6 +9,46 @@ const logger = require('../utils/logger');
  * Le sursalaire est le total des retenues mensuelles des accomptes crédité à un agent bénéficiaire
  */
 class SursalaireService {
+  static async applySursalaireToPayroll(sursalaire, beneficiaryPayrollId = null) {
+    const overlapConditions = [
+      {
+        periodStart: { $lte: sursalaire.periodStart },
+        periodEnd: { $gte: sursalaire.periodStart }
+      },
+      {
+        periodStart: { $lte: sursalaire.periodEnd },
+        periodEnd: { $gte: sursalaire.periodEnd }
+      },
+      {
+        periodStart: { $gte: sursalaire.periodStart },
+        periodEnd: { $lte: sursalaire.periodEnd }
+      }
+    ];
+
+    let payroll = null;
+    if (beneficiaryPayrollId) {
+      payroll = await Payroll.findById(beneficiaryPayrollId);
+    }
+    if (!payroll) {
+      payroll = await Payroll.findOne({
+        agentId: sursalaire.beneficiaryAgentId,
+        $or: overlapConditions
+      });
+    }
+
+    if (!payroll) {
+      return null;
+    }
+
+    if (!payroll.gains) {
+      payroll.gains = {};
+    }
+    payroll.gains.sursalaire = sursalaire.creditedAmount || 0;
+
+    await payroll.save();
+
+    return payroll;
+  }
   /**
    * Calcule le total des retenues d'accomptes pour une période donnée
    * @param {Date} periodStart - Date de début de période
@@ -143,8 +183,21 @@ class SursalaireService {
       });
 
       await sursalaire.save();
+
+      const payroll = await this.applySursalaireToPayroll(sursalaire);
+      if (payroll) {
+        sursalaire.status = 'credited';
+        sursalaire.creditedAt = new Date();
+        sursalaire.creditedBy = createdBy;
+        sursalaire.beneficiaryPayrollId = payroll._id;
+        await sursalaire.save();
+      }
+
       await sursalaire.populate('beneficiaryAgentId', 'firstName lastName matriculeNumber');
       await sursalaire.populate('createdBy', 'email firstName lastName');
+      if (sursalaire.beneficiaryPayrollId) {
+        await sursalaire.populate('beneficiaryPayrollId');
+      }
 
       logger.info(`Sursalaire créé: ${sursalaire._id}, bénéficiaire: ${beneficiaryAgentId}, montant: ${deductionsData.totalDeductions}`);
 
@@ -177,12 +230,14 @@ class SursalaireService {
         throw new Error('Ce sursalaire a été annulé');
       }
 
+      const payroll = await this.applySursalaireToPayroll(sursalaire, beneficiaryPayrollId);
+
       // Mettre à jour le statut
       sursalaire.status = 'credited';
       sursalaire.creditedAt = new Date();
       sursalaire.creditedBy = creditedBy;
-      if (beneficiaryPayrollId) {
-        sursalaire.beneficiaryPayrollId = beneficiaryPayrollId;
+      if (payroll) {
+        sursalaire.beneficiaryPayrollId = payroll._id;
       }
 
       await sursalaire.save();

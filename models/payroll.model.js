@@ -34,6 +34,7 @@ const payrollSchema = new Schema({
     transport: { type: Number, default: 0, min: 0 }, // Prime de transport
     risk: { type: Number, default: 0, min: 0 }, // Prime de risque
     totalIndemnities: { type: Number, default: 0, min: 0 }, // Indemnité de service rendu (5% auto)
+    sursalaire: { type: Number, default: 0, min: 0 }, // Sursalaire
     overtimeHours: { type: Number, default: 0, min: 0 }, // Heures supplémentaires
     grossSalary: { type: Number, default: 0, min: 0 } // Salaire brut (calculé)
   },
@@ -41,6 +42,7 @@ const payrollSchema = new Schema({
   deductions: {
     accompte: { type: Number, default: 0, min: 0 }, // Accompte sur salaire
     autresRetenues: { type: Number, default: 0, min: 0 }, // Autres retenues (regroupe fir, reimbursement)
+    absences: { type: Number, default: 0, min: 0 }, // Absences
     totalRetenues: { type: Number, default: 0, min: 0 } // Total retenues (calculé)
   },
   // Charges patronales
@@ -126,6 +128,7 @@ payrollSchema.pre('save', function(next) {
                       (this.gains.transport || 0) + 
                       (this.gains.risk || 0) + 
                       (this.gains.totalIndemnities || 0) + 
+                      (this.gains.sursalaire || 0) +
                       (this.gains.overtimeHours || 0);
   
   this.gains.grossSalary = grossSalary;
@@ -133,7 +136,8 @@ payrollSchema.pre('save', function(next) {
   // Le total des retenues = accompte + autresRetenues (inclut FIR, remboursements, etc.)
   const accompte = this.deductions.accompte || 0;
   const autresRetenues = this.deductions.autresRetenues || 0;
-  this.deductions.totalRetenues = accompte + autresRetenues;
+  const absences = this.deductions.absences || 0;
+  this.deductions.totalRetenues = accompte + autresRetenues + absences;
   
   // Calculer le salaire net à payer = salaire brut - déductions (accompte + autresRetenues)
   // Toujours recalculer pour s'assurer que netAmount est cohérent avec les déductions
