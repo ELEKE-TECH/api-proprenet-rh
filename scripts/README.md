@@ -50,6 +50,21 @@ Convertit les numéros de contrat de l'ancien format au nouveau format.
 ### 4. `run-all-migrations.js`
 Script principal qui exécute toutes les migrations dans l'ordre approprié.
 
+### 5. `reset-payroll-paid-status.js`
+Réinitialise le statut de paiement de tous les salaires en les marquant comme non payés.
+
+**⚠️ ATTENTION** : Cette opération est irréversible et va :
+- Marquer tous les salaires comme non payés (`paid: false`)
+- Effacer les dates de paiement (`paidAt`)
+- Effacer les références de paiement (`paymentReference`)
+
+**Usage** :
+```bash
+node backend/scripts/reset-payroll-paid-status.js
+```
+
+**Recommandation** : Faire une sauvegarde de la base de données avant d'exécuter ce script.
+
 ## Utilisation
 
 ### Sur le serveur de production
@@ -82,6 +97,9 @@ node scripts/fix-agent-matricules.js
 
 # Migration des numéros de contrat
 node scripts/fix-contract-numbers.js
+
+# Réinitialiser le statut de paiement des salaires
+node scripts/reset-payroll-paid-status.js
 ```
 
 ### En local (développement)
