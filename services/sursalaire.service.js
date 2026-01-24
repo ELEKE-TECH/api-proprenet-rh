@@ -89,9 +89,6 @@ class SursalaireService {
         payroll.advancesApplied.forEach(applied => {
           const deductionAmount = applied.amount || 0;
           if (deductionAmount > 0) {
-            deductionsByAgent[agentId].totalDeductions += deductionAmount;
-            totalDeductions += deductionAmount;
-
             // Gérer les cas où advanceId peut être un objet ou un ID
             let advanceIdValue = applied.advanceId;
             let advanceNumberValue = 'N/A';
@@ -100,6 +97,16 @@ class SursalaireService {
               advanceIdValue = applied.advanceId._id || applied.advanceId;
               advanceNumberValue = applied.advanceId.advanceNumber || 'N/A';
             }
+
+            // Ne pas ajouter les déductions sans advanceId valide
+            if (!advanceIdValue) {
+              logger.warn(`Déduction ignorée: advanceId manquant pour agent ${agentId}, montant: ${deductionAmount}`);
+              return;
+            }
+
+            // Ajouter au total seulement si advanceId est valide
+            deductionsByAgent[agentId].totalDeductions += deductionAmount;
+            totalDeductions += deductionAmount;
 
             deductionsByAgent[agentId].deductions.push({
               advanceId: advanceIdValue,
@@ -165,6 +172,20 @@ class SursalaireService {
       const month = periodEnd.getMonth() + 1;
       const year = periodEnd.getFullYear();
 
+      // Filtrer les déductions sans advanceId valide (sécurité supplémentaire)
+      const validDeductions = deductionsData.deductionsByAgent.flatMap(agentData => 
+        agentData.deductions.filter(deduction => deduction.advanceId)
+      );
+
+      if (validDeductions.length === 0) {
+        throw new Error('Aucune déduction valide trouvée pour cette période');
+      }
+
+      // Recalculer le total des déductions valides
+      const totalValidDeductions = validDeductions.reduce((sum, deduction) => 
+        sum + (deduction.deductionAmount || 0), 0
+      );
+
       // Créer le sursalaire
       const sursalaire = new Sursalaire({
         beneficiaryAgentId,
@@ -172,11 +193,9 @@ class SursalaireService {
         periodEnd,
         month,
         year,
-        totalAdvanceDeductions: deductionsData.totalDeductions,
-        advanceDeductions: deductionsData.deductionsByAgent.flatMap(agentData => 
-          agentData.deductions
-        ),
-        creditedAmount: deductionsData.totalDeductions, // Pour l'instant, créditer le montant total
+        totalAdvanceDeductions: totalValidDeductions,
+        advanceDeductions: validDeductions,
+        creditedAmount: totalValidDeductions, // Pour l'instant, créditer le montant total
         status: 'pending',
         notes,
         createdBy
