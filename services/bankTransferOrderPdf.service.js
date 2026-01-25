@@ -230,39 +230,22 @@ async function generateTransferOrderPDF(bank, payrolls, transferDate) {
       
       currentY += 30;
       
-      // Signatures en bas de page - deux colonnes sur la même ligne
+      // Signature en bas de page - Directrice Générale uniquement
       const signatureY = currentY;
       
-      // Colonne gauche : Directrice Générale
-      const leftTitle = 'Directrice Générale';
-      const leftName = 'MENODJI PASSEH';
+      const title = 'Directrice Générale';
+      const name = 'MENODJI PASSEH';
       
       doc.font('Helvetica-Bold')
          .fontSize(11);
-      const leftTitleWidth = doc.widthOfString(leftTitle);
-      doc.text(leftTitle, margin, signatureY);
+      const titleWidth = doc.widthOfString(title);
+      doc.text(title, margin, signatureY);
       
       // Centrer le nom sous le titre
       doc.font('Helvetica')
          .fontSize(11);
-      const leftNameWidth = doc.widthOfString(leftName);
-      doc.text(leftName, margin + (leftTitleWidth - leftNameWidth) / 2, signatureY + 15);
-      
-      // Colonne droite : Directeur Relations Publique
-      const rightTitle = 'Directeur Relations Publique';
-      const rightName = 'TCHOMBI GETNA ZASUTTA';
-      
-      doc.font('Helvetica-Bold')
-         .fontSize(11);
-      const rightTitleWidth = doc.widthOfString(rightTitle);
-      const rightTitleX = pageWidth - margin - rightTitleWidth;
-      doc.text(rightTitle, rightTitleX, signatureY);
-      
-      // Centrer le nom sous le titre
-      doc.font('Helvetica')
-         .fontSize(11);
-      const rightNameWidth = doc.widthOfString(rightName);
-      doc.text(rightName, rightTitleX + (rightTitleWidth - rightNameWidth) / 2, signatureY + 15);
+      const nameWidth = doc.widthOfString(name);
+      doc.text(name, margin + (titleWidth - nameWidth) / 2, signatureY + 15);
 
       doc.end();
     } catch (error) {
@@ -478,39 +461,22 @@ async function generateTransferOrderPDFFromModel(order) {
 
       currentY += 30;
 
-      // Signatures en bas de page - deux colonnes sur la même ligne
+      // Signature en bas de page - Directrice Générale uniquement
       const signatureY = currentY;
       
-      // Colonne gauche : Directrice Générale
-      const leftTitle = 'Directrice Générale';
-      const leftName = 'MENODJI PASSEH';
+      const title = 'Directrice Générale';
+      const name = 'MENODJI PASSEH';
       
       doc.font('Helvetica-Bold')
          .fontSize(11);
-      const leftTitleWidth = doc.widthOfString(leftTitle);
-      doc.text(leftTitle, margin, signatureY);
+      const titleWidth = doc.widthOfString(title);
+      doc.text(title, margin, signatureY);
       
       // Centrer le nom sous le titre
       doc.font('Helvetica')
          .fontSize(11);
-      const leftNameWidth = doc.widthOfString(leftName);
-      doc.text(leftName, margin + (leftTitleWidth - leftNameWidth) / 2, signatureY + 15);
-      
-      // Colonne droite : Directeur Relations Publique
-      const rightTitle = 'Directeur Relations Publique';
-      const rightName = 'TCHOMBI GETNA ZASUTTA';
-      
-      doc.font('Helvetica-Bold')
-         .fontSize(11);
-      const rightTitleWidth = doc.widthOfString(rightTitle);
-      const rightTitleX = pageWidth - margin - rightTitleWidth;
-      doc.text(rightTitle, rightTitleX, signatureY);
-      
-      // Centrer le nom sous le titre
-      doc.font('Helvetica')
-         .fontSize(11);
-      const rightNameWidth = doc.widthOfString(rightName);
-      doc.text(rightName, rightTitleX + (rightTitleWidth - rightNameWidth) / 2, signatureY + 15);
+      const nameWidth = doc.widthOfString(name);
+      doc.text(name, margin + (titleWidth - nameWidth) / 2, signatureY + 15);
 
       doc.end();
     } catch (error) {

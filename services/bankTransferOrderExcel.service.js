@@ -226,6 +226,41 @@ async function generateTransferOrderExcel(order) {
       totalRow.getCell(7).style = totalStyle;
     }
 
+    // Ajouter les signatures en bas du fichier
+    const signatureRow = 4 + (order.employees ? order.employees.length : 0) + 2;
+    
+    // Colonne gauche : Directrice Générale
+    const leftTitle = 'Directrice Générale';
+    const leftName = 'MENODJI PASSEH';
+    
+    // Titre à gauche - fusionner A et B pour avoir une zone de centrage
+    worksheet.mergeCells(`A${signatureRow}:B${signatureRow}`);
+    worksheet.getCell(`A${signatureRow}`).value = leftTitle;
+    worksheet.getCell(`A${signatureRow}`).font = { bold: true, size: 11 };
+    worksheet.getCell(`A${signatureRow}`).alignment = { horizontal: 'left', vertical: 'middle' };
+    
+    // Nom centré sous le titre dans la même zone fusionnée
+    worksheet.mergeCells(`A${signatureRow + 1}:B${signatureRow + 1}`);
+    worksheet.getCell(`A${signatureRow + 1}`).value = leftName;
+    worksheet.getCell(`A${signatureRow + 1}`).font = { size: 11 };
+    worksheet.getCell(`A${signatureRow + 1}`).alignment = { horizontal: 'center', vertical: 'middle' };
+    
+    // Colonne droite : Directeur Relations Publique
+    const rightTitle = 'Directeur Relations Publique';
+    const rightName = 'TCHOMBI GETNA ZASUTTA';
+    
+    // Titre à droite - fusionner F et G pour avoir une zone de centrage
+    worksheet.mergeCells(`F${signatureRow}:G${signatureRow}`);
+    worksheet.getCell(`F${signatureRow}`).value = rightTitle;
+    worksheet.getCell(`F${signatureRow}`).font = { bold: true, size: 11 };
+    worksheet.getCell(`F${signatureRow}`).alignment = { horizontal: 'right', vertical: 'middle' };
+    
+    // Nom centré sous le titre dans la même zone fusionnée
+    worksheet.mergeCells(`F${signatureRow + 1}:G${signatureRow + 1}`);
+    worksheet.getCell(`F${signatureRow + 1}`).value = rightName;
+    worksheet.getCell(`F${signatureRow + 1}`).font = { size: 11 };
+    worksheet.getCell(`F${signatureRow + 1}`).alignment = { horizontal: 'center', vertical: 'middle' };
+
     // Générer le buffer Excel
     const buffer = await workbook.xlsx.writeBuffer();
     return buffer;
