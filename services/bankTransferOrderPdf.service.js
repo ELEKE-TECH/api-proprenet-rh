@@ -50,43 +50,43 @@ async function generateTransferOrderPDF(bank, payrolls, transferDate) {
         contactInfo
       );
 
-      currentY += 20;
+      currentY += 15;
 
       // Destinataire
       doc.fontSize(11)
          .font('Helvetica')
          .text('À', margin, currentY);
       
-      currentY += 20;
+      currentY += 15;
       
       doc.font('Helvetica-Bold')
          .fontSize(11)
          .text('Monsieur le Directeur Général', margin, currentY);
       
-      currentY += 15;
+      currentY += 12;
       
       doc.font('Helvetica-Bold')
          .text(bank.name.toUpperCase(), margin, currentY);
       
       if (bank.city) {
-        currentY += 15;
+        currentY += 12;
         doc.font('Helvetica')
            .text(`${bank.city}, Tchad`, margin, currentY);
       }
 
-      currentY += 25;
+      currentY += 18;
 
       // Référence et objet
       doc.font('Helvetica')
          .fontSize(11)
          .text(`Ref : ${reference}`, margin, currentY);
       
-      currentY += 18;
+      currentY += 15;
       
       doc.font('Helvetica-Bold')
          .text('Objet : Ordre de virement', margin, currentY);
 
-      currentY += 30;
+      currentY += 20;
 
       // Corps de la lettre
       doc.font('Helvetica')
@@ -94,7 +94,7 @@ async function generateTransferOrderPDF(bank, payrolls, transferDate) {
          .fillColor('#000000')
          .text('Monsieur le Directeur,', margin, currentY);
 
-      currentY += 20;
+      currentY += 15;
 
       // Texte principal
       const bodyText = `Nous venons par cette présente auprès de votre haute personnalité vous demander de bien vouloir débiter ${formatCurrency(totalAmount)} de notre compte ${bank.companyAccountNumber || '04171890101-55'}, pour créditer les comptes du personnel domicilié à la ${bank.name}.`;
@@ -105,7 +105,7 @@ async function generateTransferOrderPDF(bank, payrolls, transferDate) {
         lineGap: 5
       });
 
-      currentY += 60;
+      currentY += 40;
 
       // Tableau des employés
       if (payrolls && payrolls.length > 0) {
@@ -113,7 +113,7 @@ async function generateTransferOrderPDF(bank, payrolls, transferDate) {
            .font('Helvetica-Bold')
            .text('Détail des virements :', margin, currentY);
         
-        currentY += 20;
+        currentY += 15;
 
         // En-têtes du tableau
         const colWidths = {
@@ -214,7 +214,7 @@ async function generateTransferOrderPDF(bank, payrolls, transferDate) {
              align: 'right'
            });
         
-        currentY += 30;
+        currentY += 20;
       }
 
       // Salutations
@@ -222,26 +222,47 @@ async function generateTransferOrderPDF(bank, payrolls, transferDate) {
          .fontSize(11)
          .text('Veuillez recevoir, Monsieur le Directeur, nos sincères salutations.', margin, currentY);
 
-      currentY += 40;
+      currentY += 30;
 
       // Date et signature
       const formattedDate = formatDate(transferDate || new Date());
       doc.text(`Fait à N'Djamena, le ${formattedDate}.`, margin, currentY);
       
-      currentY += 40;
+      currentY += 30;
       
-      // Afficher "Directrice Générale" et le nom sur des lignes séparées
-      // Le nom de la directrice de l'entreprise (PROPRENET), pas de la banque
-      const companyDirectorName = 'Mme MENODJI PASSEH';
+      // Signatures en bas de page - deux colonnes sur la même ligne
+      const signatureY = currentY;
+      
+      // Colonne gauche : Directrice Générale
+      const leftTitle = 'Directrice Générale';
+      const leftName = 'MENODJI PASSEH';
+      
       doc.font('Helvetica-Bold')
-         .fontSize(11)
-         .text('Directrice Générale', margin, currentY);
+         .fontSize(11);
+      const leftTitleWidth = doc.widthOfString(leftTitle);
+      doc.text(leftTitle, margin, signatureY);
       
-      currentY += 15;
-      
+      // Centrer le nom sous le titre
       doc.font('Helvetica')
-         .fontSize(11)
-         .text(companyDirectorName, margin, currentY);
+         .fontSize(11);
+      const leftNameWidth = doc.widthOfString(leftName);
+      doc.text(leftName, margin + (leftTitleWidth - leftNameWidth) / 2, signatureY + 15);
+      
+      // Colonne droite : Directeur Relations Publique
+      const rightTitle = 'Directeur Relations Publique';
+      const rightName = 'TCHOMBI GETNA ZASUTTA';
+      
+      doc.font('Helvetica-Bold')
+         .fontSize(11);
+      const rightTitleWidth = doc.widthOfString(rightTitle);
+      const rightTitleX = pageWidth - margin - rightTitleWidth;
+      doc.text(rightTitle, rightTitleX, signatureY);
+      
+      // Centrer le nom sous le titre
+      doc.font('Helvetica')
+         .fontSize(11);
+      const rightNameWidth = doc.widthOfString(rightName);
+      doc.text(rightName, rightTitleX + (rightTitleWidth - rightNameWidth) / 2, signatureY + 15);
 
       doc.end();
     } catch (error) {
@@ -289,20 +310,20 @@ async function generateTransferOrderPDFFromModel(order) {
         contactInfo
       );
 
-      currentY += 20;
+      currentY += 15;
 
       // Destinataire
       doc.fontSize(11)
          .font('Helvetica')
          .text('À', margin, currentY);
       
-      currentY += 20;
+      currentY += 15;
       
       doc.font('Helvetica-Bold')
          .fontSize(12)
          .text(order.bank || 'CORIS BANK INTERNATIONAL', margin, currentY);
 
-      currentY += 30;
+      currentY += 20;
 
       // Objet
       const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 
@@ -316,7 +337,7 @@ async function generateTransferOrderPDFFromModel(order) {
            width: contentWidth
          });
 
-      currentY += 30;
+      currentY += 20;
 
       // Salutation
       doc.font('Helvetica')
@@ -324,7 +345,7 @@ async function generateTransferOrderPDFFromModel(order) {
          .fillColor('#000000')
          .text('Madame, Monsieur,', margin, currentY);
 
-      currentY += 20;
+      currentY += 15;
 
       // Corps de la lettre
       const bodyText = 'Par la présente, nous vous prions de bien vouloir procéder au virement des salaires du personnel de l\'entreprise PROPRENET, au titre du mois de ' + periodText + ', conformément aux informations ci-dessous et aux listings joints.';
@@ -341,30 +362,30 @@ async function generateTransferOrderPDFFromModel(order) {
         lineGap: 5
       });
 
-      currentY += bodyTextHeight + 20;
+      currentY += bodyTextHeight + 15;
 
       // Donneur d'ordre
       doc.font('Helvetica-Bold')
          .fontSize(11)
          .text('Donneur d\'ordre :', margin, currentY);
       
-      currentY += 20;
+      currentY += 15;
       
       doc.font('Helvetica')
          .fontSize(11);
       
       doc.text(`Entreprise : ${order.orderer.company || 'PROPRENET'}`, margin, currentY);
-      currentY += 20;
+      currentY += 15;
       
       doc.text(`Compte N° : ${order.orderer.accountNumber || 'N/A'}`, margin, currentY);
-      currentY += 20;
+      currentY += 15;
       
       doc.text(`Banque : ${order.orderer.bank || 'CORIS BANK INTERNATIONAL'}`, margin, currentY);
-      currentY += 20;
+      currentY += 15;
       
       if (order.orderer.agency) {
         doc.text(`Agence : ${order.orderer.agency}`, margin, currentY);
-        currentY += 20;
+        currentY += 15;
       }
 
       // Bénéficiaires
@@ -372,26 +393,26 @@ async function generateTransferOrderPDFFromModel(order) {
          .fontSize(11)
          .text('Bénéficiaires :', margin, currentY);
       
-      currentY += 20;
+      currentY += 15;
       
       doc.font('Helvetica')
          .fontSize(11)
          .text('Salariés PROPRENET (voir liste nominative jointe)', margin, currentY);
       
-      currentY += 20;
+      currentY += 15;
 
       // Montant total
       doc.font('Helvetica-Bold')
          .fontSize(11)
          .text('Montant total à virer :', margin, currentY);
       
-      currentY += 20;
+      currentY += 15;
       
       doc.font('Helvetica')
          .fontSize(11)
          .text(`${formatCurrency(order.totalAmount || 0)}`, margin, currentY);
       
-      currentY += 20;
+      currentY += 15;
       
       // Toujours régénérer le montant en lettres pour s'assurer qu'il est correct
       // (au cas où l'ordre aurait été créé avec une ancienne version de la fonction)
@@ -411,20 +432,20 @@ async function generateTransferOrderPDFFromModel(order) {
       }
       doc.text(`(${amountInWords} francs CFA)`, margin, currentY);
       
-      currentY += 20;
+      currentY += 15;
 
       // Date d'exécution souhaitée
       doc.font('Helvetica-Bold')
          .fontSize(11)
          .text('Date d\'exécution souhaitée :', margin, currentY);
       
-      currentY += 20;
+      currentY += 15;
       
       doc.font('Helvetica')
          .fontSize(11)
          .text(formatDate(order.executionDate), margin, currentY);
       
-      currentY += 20;
+      currentY += 15;
 
       // Salutations
       const thanksText = 'Nous vous remercions de bien vouloir exécuter cette opération dans les meilleurs délais et restons à votre disposition pour toute information complémentaire.';
@@ -442,11 +463,11 @@ async function generateTransferOrderPDFFromModel(order) {
            lineGap: 5
          });
 
-      currentY += thanksTextHeight + 20;
+      currentY += thanksTextHeight + 15;
 
       doc.text('Veuillez agréer, Madame, Monsieur, l\'expression de nos salutations distinguées.', margin, currentY);
 
-      currentY += 40;
+      currentY += 30;
 
       // Date et lieu aligné à droite
       const location = order.location || 'N\'Djamena';
@@ -455,12 +476,41 @@ async function generateTransferOrderPDFFromModel(order) {
       const dateTextWidth = doc.widthOfString(dateText);
       doc.text(dateText, pageWidth - margin - dateTextWidth, currentY);
 
-      currentY += 20;
+      currentY += 30;
 
-      // Nom et fonction aligné à droite
-      const signatureText = 'MENODJI PASSEH, Directrice Generale';
-      const signatureTextWidth = doc.widthOfString(signatureText);
-      doc.text(signatureText, pageWidth - margin - signatureTextWidth, currentY);
+      // Signatures en bas de page - deux colonnes sur la même ligne
+      const signatureY = currentY;
+      
+      // Colonne gauche : Directrice Générale
+      const leftTitle = 'Directrice Générale';
+      const leftName = 'MENODJI PASSEH';
+      
+      doc.font('Helvetica-Bold')
+         .fontSize(11);
+      const leftTitleWidth = doc.widthOfString(leftTitle);
+      doc.text(leftTitle, margin, signatureY);
+      
+      // Centrer le nom sous le titre
+      doc.font('Helvetica')
+         .fontSize(11);
+      const leftNameWidth = doc.widthOfString(leftName);
+      doc.text(leftName, margin + (leftTitleWidth - leftNameWidth) / 2, signatureY + 15);
+      
+      // Colonne droite : Directeur Relations Publique
+      const rightTitle = 'Directeur Relations Publique';
+      const rightName = 'TCHOMBI GETNA ZASUTTA';
+      
+      doc.font('Helvetica-Bold')
+         .fontSize(11);
+      const rightTitleWidth = doc.widthOfString(rightTitle);
+      const rightTitleX = pageWidth - margin - rightTitleWidth;
+      doc.text(rightTitle, rightTitleX, signatureY);
+      
+      // Centrer le nom sous le titre
+      doc.font('Helvetica')
+         .fontSize(11);
+      const rightNameWidth = doc.widthOfString(rightName);
+      doc.text(rightName, rightTitleX + (rightTitleWidth - rightNameWidth) / 2, signatureY + 15);
 
       doc.end();
     } catch (error) {
