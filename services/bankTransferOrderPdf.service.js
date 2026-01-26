@@ -293,32 +293,32 @@ async function generateTransferOrderPDFFromModel(order) {
         contactInfo
       );
 
-      currentY += 15;
+      currentY += 25;
 
       // Destinataire
       doc.fontSize(11)
          .font('Helvetica')
          .text('A', margin, currentY);
       
+      currentY += 18;
+      
+      doc.font('Helvetica-Bold')
+         .fontSize(11)
+         .text('Monsieur le Directeur Général', margin, currentY);
+      
       currentY += 15;
       
       doc.font('Helvetica-Bold')
-         .fontSize(12)
-         .text('Monsieur le Directeur Général', margin, currentY);
-      
-      currentY += 12;
-      
-      doc.font('Helvetica-Bold')
-         .fontSize(12)
+         .fontSize(11)
          .text('UNITED BANK FOR AFRICA,', margin, currentY);
       
-      currentY += 12;
+      currentY += 15;
       
       doc.font('Helvetica')
-         .fontSize(12)
+         .fontSize(11)
          .text('N\'djamèna, Tchad', margin, currentY);
 
-      currentY += 20;
+      currentY += 25;
 
       // Préparer le texte de période pour le corps de la lettre
       const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 
@@ -329,16 +329,16 @@ async function generateTransferOrderPDFFromModel(order) {
       // Référence
       doc.font('Helvetica')
          .fontSize(11)
-         .text('Ref :          /PNET/DG/25', margin, currentY);
+         .text('Ref :          /PNET/DG/26', margin, currentY);
       
-      currentY += 15;
+      currentY += 18;
       
       // Objet
       doc.font('Helvetica-Bold')
          .fontSize(11)
          .text('Objet : Ordre de virement', margin, currentY);
 
-      currentY += 20;
+      currentY += 30;
 
       // Salutation
       doc.font('Helvetica')
@@ -346,7 +346,7 @@ async function generateTransferOrderPDFFromModel(order) {
          .fillColor('#000000')
          .text('Madame, Monsieur,', margin, currentY);
 
-      currentY += 15;
+      currentY += 18;
 
       // Corps de la lettre
       const bodyText = 'Par la présente, nous vous prions de bien vouloir procéder au virement des salaires du personnel de l\'entreprise PROPRENET, au titre du mois de ' + periodText + ', conformément aux informations ci-dessous et aux listings joints.';
@@ -354,39 +354,39 @@ async function generateTransferOrderPDFFromModel(order) {
       const bodyTextHeight = doc.heightOfString(bodyText, {
         width: contentWidth,
         align: 'left',
-        lineGap: 5
+        lineGap: 7
       });
       
       doc.text(bodyText, margin, currentY, {
         width: contentWidth,
         align: 'left',
-        lineGap: 5
+        lineGap: 7
       });
 
-      currentY += bodyTextHeight + 15;
+      currentY += bodyTextHeight + 20;
 
       // Donneur d'ordre
       doc.font('Helvetica-Bold')
          .fontSize(11)
          .text('Donneur d\'ordre :', margin, currentY);
       
-      currentY += 15;
+      currentY += 18;
       
       doc.font('Helvetica')
          .fontSize(11);
       
       doc.text(`Entreprise : ${order.orderer.company || 'PROPRENET'}`, margin, currentY);
-      currentY += 15;
+      currentY += 18;
       
       doc.text(`Compte N° : ${order.orderer.accountNumber || 'N/A'}`, margin, currentY);
-      currentY += 15;
+      currentY += 18;
       
       doc.text(`Banque : ${order.orderer.bank || 'CORIS BANK INTERNATIONAL'}`, margin, currentY);
-      currentY += 15;
+      currentY += 18;
       
       if (order.orderer.agency) {
         doc.text(`Agence : ${order.orderer.agency}`, margin, currentY);
-        currentY += 15;
+        currentY += 18;
       }
 
       // Bénéficiaires
@@ -400,7 +400,7 @@ async function generateTransferOrderPDFFromModel(order) {
          .fontSize(11)
          .text('Salariés PROPRENET (voir liste nominative jointe)', margin + beneficiairesLabelWidth + 5, currentY);
       
-      currentY += 18;
+      currentY += 22;
 
       // Montant total
       // Toujours régénérer le montant en lettres pour s'assurer qu'il est correct
@@ -432,7 +432,7 @@ async function generateTransferOrderPDFFromModel(order) {
          .fontSize(11)
          .text(`${formattedAmount} (${amountInWords} francs CFA)`, margin + labelWidth + 5, currentY);
       
-      currentY += 18;
+      currentY += 22;
 
       // Date d'exécution souhaitée
       doc.font('Helvetica-Bold')
@@ -445,14 +445,14 @@ async function generateTransferOrderPDFFromModel(order) {
          .fontSize(11)
          .text(formatDate(order.executionDate), margin + dateLabelWidth + 5, currentY);
       
-      currentY += 18;
+      currentY += 22;
 
       // Salutations
       const thanksText = 'Nous vous remercions de bien vouloir exécuter cette opération dans les meilleurs délais et restons à votre disposition pour toute information complémentaire.';
       const thanksTextHeight = doc.heightOfString(thanksText, {
         width: contentWidth,
         align: 'left',
-        lineGap: 5
+        lineGap: 7
       });
       
       doc.font('Helvetica')
@@ -460,14 +460,14 @@ async function generateTransferOrderPDFFromModel(order) {
          .text(thanksText, margin, currentY, {
            width: contentWidth,
            align: 'left',
-           lineGap: 5
+           lineGap: 7
          });
 
-      currentY += thanksTextHeight + 15;
+      currentY += thanksTextHeight + 20;
 
       doc.text('Veuillez agréer, Madame, Monsieur, l\'expression de nos salutations distinguées.', margin, currentY);
 
-      currentY += 30;
+      currentY += 35;
 
       // Date et lieu aligné à droite
       const location = order.location || 'N\'Djamena';
@@ -476,7 +476,7 @@ async function generateTransferOrderPDFFromModel(order) {
       const dateTextWidth = doc.widthOfString(dateText);
       doc.text(dateText, pageWidth - margin - dateTextWidth, currentY);
 
-      currentY += 30;
+      currentY += 35;
 
       // Signature en bas de page - Directrice Générale uniquement
       const signatureY = currentY;
