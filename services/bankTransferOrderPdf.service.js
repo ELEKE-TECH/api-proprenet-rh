@@ -394,27 +394,15 @@ async function generateTransferOrderPDFFromModel(order) {
          .fontSize(11)
          .text('Bénéficiaires :', margin, currentY);
       
-      currentY += 15;
-      
+      // Afficher le texte sur la même ligne
+      const beneficiairesLabelWidth = doc.widthOfString('Bénéficiaires :');
       doc.font('Helvetica')
          .fontSize(11)
-         .text('Salariés PROPRENET (voir liste nominative jointe)', margin, currentY);
+         .text('Salariés PROPRENET (voir liste nominative jointe)', margin + beneficiairesLabelWidth + 5, currentY);
       
-      currentY += 15;
+      currentY += 18;
 
       // Montant total
-      doc.font('Helvetica-Bold')
-         .fontSize(11)
-         .text('Montant total à virer :', margin, currentY);
-      
-      currentY += 15;
-      
-      doc.font('Helvetica')
-         .fontSize(11)
-         .text(`${formatCurrency(order.totalAmount || 0)}`, margin, currentY);
-      
-      currentY += 15;
-      
       // Toujours régénérer le montant en lettres pour s'assurer qu'il est correct
       // (au cas où l'ordre aurait été créé avec une ancienne version de la fonction)
       let amountInWords;
@@ -431,22 +419,33 @@ async function generateTransferOrderPDFFromModel(order) {
         // Fallback sur la valeur stockée si disponible
         amountInWords = order.totalAmountInWords || 'Erreur de conversion';
       }
-      doc.text(`(${amountInWords} francs CFA)`, margin, currentY);
       
-      currentY += 15;
+      const formattedAmount = formatCurrency(order.totalAmount || 0);
+      
+      doc.font('Helvetica-Bold')
+         .fontSize(11)
+         .text('Montant total à virer :', margin, currentY);
+      
+      // Afficher le montant en chiffres et lettres sur la même ligne
+      const labelWidth = doc.widthOfString('Montant total à virer :');
+      doc.font('Helvetica')
+         .fontSize(11)
+         .text(`${formattedAmount} (${amountInWords} francs CFA)`, margin + labelWidth + 5, currentY);
+      
+      currentY += 18;
 
       // Date d'exécution souhaitée
       doc.font('Helvetica-Bold')
          .fontSize(11)
          .text('Date d\'exécution souhaitée :', margin, currentY);
       
-      currentY += 15;
-      
+      // Afficher la date sur la même ligne
+      const dateLabelWidth = doc.widthOfString('Date d\'exécution souhaitée :');
       doc.font('Helvetica')
          .fontSize(11)
-         .text(formatDate(order.executionDate), margin, currentY);
+         .text(formatDate(order.executionDate), margin + dateLabelWidth + 5, currentY);
       
-      currentY += 15;
+      currentY += 18;
 
       // Salutations
       const thanksText = 'Nous vous remercions de bien vouloir exécuter cette opération dans les meilleurs délais et restons à votre disposition pour toute information complémentaire.';
