@@ -298,27 +298,45 @@ async function generateTransferOrderPDFFromModel(order) {
       // Destinataire
       doc.fontSize(11)
          .font('Helvetica')
-         .text('À', margin, currentY);
+         .text('A', margin, currentY);
       
       currentY += 15;
       
       doc.font('Helvetica-Bold')
          .fontSize(12)
-         .text(order.bank || 'CORIS BANK INTERNATIONAL', margin, currentY);
+         .text('Monsieur le Directeur Général', margin, currentY);
+      
+      currentY += 12;
+      
+      doc.font('Helvetica-Bold')
+         .fontSize(12)
+         .text('UNITED BANK FOR AFRICA,', margin, currentY);
+      
+      currentY += 12;
+      
+      doc.font('Helvetica')
+         .fontSize(12)
+         .text('N\'djamèna, Tchad', margin, currentY);
 
       currentY += 20;
 
-      // Objet
+      // Préparer le texte de période pour le corps de la lettre
       const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 
                          'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
       const monthName = monthNames[order.period.month - 1] || '';
       const periodText = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${order.period.year}`;
+
+      // Référence
+      doc.font('Helvetica')
+         .fontSize(11)
+         .text('Ref :          /PNET/DG/25', margin, currentY);
       
+      currentY += 15;
+      
+      // Objet
       doc.font('Helvetica-Bold')
          .fontSize(11)
-         .text('Objet : Ordre de virement des salaires du personnel PROPRENET – Mois de ' + periodText, margin, currentY, {
-           width: contentWidth
-         });
+         .text('Objet : Ordre de virement', margin, currentY);
 
       currentY += 20;
 
